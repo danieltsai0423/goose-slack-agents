@@ -21,6 +21,8 @@ npm run configure -- codex
 
 在 Goose 選擇 **Configure Providers → ChatGPT Codex**，用自己的 ChatGPT Plus 在瀏覽器登入。原版 Codex CLI 的登入不會填入這個 Goose profile。Claude 端使用已在原版 Claude Code 登入的 Claude 訂閱。若回報登入到期，執行 `claude auth login` 重新登入。
 
+可以在 `.env` 以 `GOOSE_CODEX_MODEL` 或 `GOOSE_CLAUDE_MODEL` 指定完整模型 ID。`GOOSE_CLAUDE_EFFORT` 會把指定的推理強度傳給 Claude Code，留空時使用 Claude Code 的設定。編輯 `.env` 後重新啟動橋接器即可套用設定。 [Claude Code 模型設定](https://code.claude.com/docs/en/model-config)
+
 以下可在設定 Slack 前執行，每個 smoke test 各跑一次模型請求：
 
 ```powershell

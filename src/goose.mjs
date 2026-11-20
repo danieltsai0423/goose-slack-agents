@@ -26,6 +26,13 @@ export function prepareAgent(id) {
     TERM: 'dumb',
     NO_COLOR: '1'
   });
+  if (id === 'claude' && process.env.GOOSE_CLAUDE_EFFORT) {
+    const effort = process.env.GOOSE_CLAUDE_EFFORT.trim();
+    if (!['low', 'medium', 'high', 'xhigh', 'max', 'auto'].includes(effort)) {
+      throw new Error('model_config');
+    }
+    env.CLAUDE_CODE_EFFORT_LEVEL = effort;
+  }
   return { env, cwd: workDir };
 }
 
