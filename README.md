@@ -47,6 +47,7 @@ npm run smoke -- claude
 | 普通訊息 | 記錄脈絡。該 thread 開啟自主回覆後，兩個 Agent 會判斷是否有值得補充的內容。判斷本身會使用模型額度。 |
 | Slack 原生點名 `@Goose-Claude` 或 `@Goose-Codex` | 呼叫被點名的 Agent。兩個名字一起點則平行回答。 |
 | `@all 各自比較這兩個方案` | 兩個 Agent 平行讀取同一份快照，各自回覆。`@all` 直接打成文字。 |
+| Slack 原生點名 `@頻道 報數` 或 `@這裡 報數` | 在訊息開頭選擇 `@頻道` 或 `@這裡`，效果同 `@all`，會叫到兩位 Agent。Slack 也會依該點名設定通知頻道成員。 |
 | `@all 一起完成這個方案` | 開啟該 thread 的自主回覆。Claude 先回答，Codex 讀取 Claude 回覆後接力，每次觸發最多四輪。開頭也可用「協作」或「接力」。 |
 | `!auto on` / `!auto off` | 開啟或關閉所在 thread 的自主回覆。 |
 | `!stop` | 關閉所在 thread 的自主回覆，停止執行中的模型程序並清掉排隊工作。已送出的 Slack 回覆會保留。 |

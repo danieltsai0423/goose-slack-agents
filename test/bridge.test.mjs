@@ -50,6 +50,26 @@ test('a dual mention gives both agents one snapshot and ignores replays and othe
   assert.ok(sent.every((outgoing) => outgoing.thread === thread));
 });
 
+test('the owner can call both agents using Slack channel and here mentions', async (t) => {
+  const { bridge, calls, sent } = fixture(t);
+  const channelThread = '1700000000.000001';
+  const hereThread = '1700000000.000002';
+  bridge.receive(message(channelThread, '<!channel> 報數'));
+  bridge.receive(message(hereThread, '<!here> 請回覆'));
+  bridge.receive(message('1700000000.000003', '<!channel> 外人發令', { user: 'UOTHER', thread_ts: channelThread }));
+  bridge.receive(message('1700000000.000004', '<!here> 其他頻道', { channel: 'COTHER' }));
+  bridge.receive(message('1700000000.000005', '<!here> Bot 發令', { user: 'UCLAUDE', thread_ts: hereThread }));
+  await bridge.idle();
+
+  assert.equal(calls.length, 4);
+  for (const [thread, request] of [[channelThread, '報數'], [hereThread, '請回覆']]) {
+    const turns = calls.filter((call) => call.messages[0].ts === thread);
+    assert.deepEqual(turns.map((turn) => turn.id).sort(), ['claude', 'codex']);
+    assert.ok(turns.every((turn) => turn.request.startsWith(`${request}\n`)));
+    assert.equal(sent.filter((reply) => reply.thread === thread).length, 2);
+  }
+});
+
 test('@all collaboration includes prior bot replies and has a four-turn cap', async (t) => {
   const { bridge, calls, sent } = fixture(t, ({ id }) => ({
     reply: `${id} 的交接`, nextAgent: id === 'codex' ? 'claude' : 'codex'

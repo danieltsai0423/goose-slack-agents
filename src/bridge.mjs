@@ -21,7 +21,7 @@ function interpret(text, identities, auto) {
   if (command === '!auto on' || command === '!auto off') {
     return { kind: 'auto', enabled: command.endsWith('on') };
   }
-  const everyone = /^@all(?=$|[\s:：，,])[\s:：，,]*/iu.exec(command);
+  const everyone = /^(?:@all(?=$|[\s:：，,])|<!(?:channel|here)(?:\|[^>]+)?>)[\s:：，,]*/iu.exec(command);
   if (everyone) {
     const request = command.slice(everyone[0].length).trim() || fallbackRequest;
     const collaborate = /^(?:一起|協作|接力|collaborate\b)/iu.test(request);
