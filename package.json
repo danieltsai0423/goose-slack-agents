@@ -8,6 +8,7 @@
     "start": "node --env-file-if-exists=.env src/main.mjs",
     "configure": "node --env-file-if-exists=.env src/setup.mjs configure",
     "smoke": "node --env-file-if-exists=.env src/setup.mjs smoke",
+    "slack:setup": "node --env-file-if-exists=.env.slack-setup src/slack-setup.mjs",
     "test": "node --test"
   },
   "dependencies": {

@@ -30,8 +30,10 @@ npm run smoke -- claude
 
 ## Slack 設定
 
-1. 在同一個 Slack workspace 建立私人頻道，例如 `#agent-lab`。在 Slack 開發者頁面選 **Create New App → From a manifest**，分別匯入 [Codex manifest](slack/codex.yaml) 和 [Claude manifest](slack/claude.yaml)。
-2. 將兩個 App 安裝到 workspace，各自把 **Bot User OAuth Token** (`xoxb-…`) 填到 `.env` 的對應變數。
+1. 在同一個 Slack workspace 建立私人頻道，例如 `#agent-lab`。選下列方式建立兩個 App。
+   - **用 API**　從 [Slack App 管理頁](https://api.slack.com/apps) 的 **Your App Configuration Tokens** 為目標 workspace 產生短效 token，在本機 `.env.slack-setup` 裡填 `SLACK_MANIFEST_TOKEN=...`，然後執行 `npm run slack:setup`。指令先驗證兩個 manifest，再建立 App 並顯示安裝頁面。App ID 保存在本機 `.data/slack-setup`，重跑會沿用已建立的 App。完成後可清除 `.env.slack-setup` 裡的短效 token。 [Slack Manifest API](https://docs.slack.dev/app-manifests/configuring-apps-with-app-manifests/)
+   - **用 Slack 管理頁**　選 **Create New App → From a manifest**，分別匯入 [Codex manifest](slack/codex.json) 和 [Claude manifest](slack/claude.json)。
+2. 在 Slack 確認安裝兩個 App，各自把 **Bot User OAuth Token** (`xoxb-…`) 填到 `.env` 的對應變數。
 3. 在 **Goose-Codex** App 的 Basic Information 建立有 `connections:write` 的 App-Level Token (`xapp-…`)，填入 `SLACK_CODEX_APP_TOKEN`。這個 App 透過 Socket Mode 接收私人頻道訊息。Goose-Claude 使用自己的 Bot token 回覆。
 4. 把兩個 App 都加入私人頻道。在 `.env` 填入該頻道的 ID 和你自己的 Slack member ID。請把 `.env` 保留在本機。
 5. 執行 `npm start`，看到已連線後，在頻道送出 `@all 各自介紹你能怎麼協助我`。
