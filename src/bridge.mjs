@@ -2,7 +2,9 @@ import { agentNames } from './config.mjs';
 
 const maxRounds = 4;
 const fallbackRequest = '請依照這個討論串目前的任務接續處理。';
+const executionPrefix = /^(?:執行|execute)\s*[:：]\s*(\S[\s\S]*)$/iu;
 const errorLabels = {
+  approval_required: '工具需要互動核准，請由擁有者使用「執行：」指令',
   authentication: '請確認對應的 Goose 訂閱登入',
   bad_output: '未收到可辨識的回覆',
   goose_failed: 'Goose 回傳錯誤',
@@ -12,7 +14,8 @@ const errorLabels = {
   output_limit: '輸出超過上限',
   rate_limit: '已達模型使用限制',
   spawn_failed: '無法啟動 Goose',
-  timeout: '執行逾時'
+  timeout: '執行逾時',
+  work_dir: '找不到設定的執行工作目錄'
 };
 
 function interpret(text, identities, auto) {
@@ -24,12 +27,18 @@ function interpret(text, identities, auto) {
   const everyone = /^(?:@all(?=$|[\s:：，,])|<!(?:channel|here)(?:\|[^>]+)?>)[\s:：，,]*/iu.exec(command);
   if (everyone) {
     const request = command.slice(everyone[0].length).trim() || fallbackRequest;
+    const execution = executionPrefix.exec(request);
+    if (execution) return { kind: 'execute', agents: agentNames, request: execution[1] };
     const collaborate = /^(?:一起|協作|接力|collaborate\b)/iu.test(request);
     return { kind: collaborate ? 'collaborate' : 'compare', agents: agentNames, request };
   }
-  const tagged = new Set([...text.matchAll(/<@([UW][A-Z0-9]+)(?:\|[^>]+)?>/g)].map((match) => match[1]));
+  const leadingMentions = /^(?:<@[UW][A-Z0-9]+(?:\|[^>]+)?>\s*)+/u.exec(command)?.[0] ?? '';
+  const execution = leadingMentions && executionPrefix.exec(command.slice(leadingMentions.length));
+  const targets = execution ? leadingMentions : command;
+  const tagged = new Set([...targets.matchAll(/<@([UW][A-Z0-9]+)(?:\|[^>]+)?>/g)].map((match) => match[1]));
   const requestedAgents = agentNames.filter((id) => tagged.has(identities[id].userId));
   if (requestedAgents.length) {
+    if (execution) return { kind: 'execute', agents: requestedAgents, request: execution[1] };
     return { kind: requestedAgents.length === 2 ? 'compare' : 'direct', agents: requestedAgents, request: command };
   }
   if (auto) return { kind: 'proactive', agents: agentNames, request: command };
@@ -40,6 +49,7 @@ export function createBridge({ store, config, identities, runAgent, send, histor
   const states = new Map();
   const hydrated = new Set();
   const notices = new Set();
+  let lastExecution = Promise.resolve();
   let closing = false;
 
   function authorOf(message) {
@@ -89,7 +99,10 @@ export function createBridge({ store, config, identities, runAgent, send, histor
       if (signal.aborted) return null;
       let result;
       try {
-        result = await runAgent({ id, request: instruction, messages, required, canDelegate, signal, timeoutMs: config.timeoutMs });
+        result = await runAgent({
+          id, request: instruction, messages, required, canDelegate,
+          execute: kind === 'execute', signal, timeoutMs: config.timeoutMs
+        });
       } catch (error) {
         if (signal.aborted) return null;
         const label = Object.hasOwn(errorLabels, error.message) ? errorLabels[error.message] : '執行失敗';
@@ -100,6 +113,20 @@ export function createBridge({ store, config, identities, runAgent, send, histor
       if (signal.aborted || !result.reply) return null;
       await publish(id, thread, result.reply);
       return canDelegate && agentNames.includes(result.nextAgent) && result.nextAgent !== id ? result.nextAgent : null;
+    }
+
+    if (kind === 'execute') {
+      const execution = lastExecution.then(async () => {
+        for (const [index, id] of agents.entries()) {
+          if (signal.aborted) break;
+          const instruction = index === 0 ? request
+            : `${request}\n請檢查上一位 Agent 在主機上的結果，完成剩餘事項並驗證。避免重複已完成的動作。`;
+          await turn(id, store.context(thread), instruction, true, false);
+        }
+      });
+      lastExecution = execution.catch(() => {});
+      await execution;
+      return;
     }
 
     if (kind === 'compare') {

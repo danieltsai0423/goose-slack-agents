@@ -80,7 +80,14 @@
         </div>
       </section>
       <section class="panel dispatch" aria-labelledby="chat-heading" id="dispatch">
-        <header class="chat-head"><div class="panel-title"><span class="section-icon chat-icon"><i data-icon="chat"></i></span><h2 id="chat-heading">任務交辦台</h2></div><div class="chat-head-actions"><button type="button" id="chat-board" class="small-action" hidden>查看分工</button><button id="chat-new" class="icon-button" aria-label="開啟新的交辦" title="開啟新的交辦"><i data-icon="compose"></i></button></div></header>
+        <header class="chat-head">
+          <div class="panel-title"><span class="section-icon chat-icon"><i data-icon="chat"></i></span><h2 id="chat-heading" tabindex="-1">任務交辦台</h2></div>
+          <div class="chat-head-actions">
+            <button type="button" id="chat-board" class="small-action" hidden>查看分工</button>
+            <button type="button" id="chat-new" class="icon-button" aria-label="開啟新的交辦" title="開啟新的交辦"><i data-icon="compose"></i></button>
+            <button type="button" id="chat-return" class="icon-button" aria-label="返回辦公室" title="返回辦公室" hidden><i data-icon="back"></i></button>
+          </div>
+        </header>
         <div class="recipients">
           <div class="target-switch" role="group" aria-label="選擇收件主管" aria-describedby="target-status">
             <button data-target="claude"><span class="id-dot clay"></span>Claude</button>
@@ -108,7 +115,10 @@
               <button id="send" type="submit" disabled><i data-icon="send"></i><span>送出</span></button>
             </div>
           </form>
-          <details id="execution-help"><summary><i data-icon="info"></i>本機執行權限</summary><p>需要主管操作工作目錄時，請以「執行：」開頭並寫明操作內容。</p></details>
+          <div class="compose-footer" id="compose-footer">
+            <details id="execution-help"><summary><i data-icon="info"></i>本機執行權限</summary><p>需要主管操作工作目錄時，請以「執行：」開頭並寫明操作內容。</p></details>
+            <button class="usage-trigger" id="usage-trigger" type="button" popovertarget="subscription-usage" aria-label="訂閱用量" title="訂閱用量"><span class="usage-ring" aria-hidden="true"></span></button>
+          </div>
           <p id="form-note" role="status" hidden></p>
         </div>
       </section>
@@ -174,6 +184,17 @@
       </div>
     </footer>
   </dialog>
+  <section class="usage-popover" id="subscription-usage" popover="auto" aria-labelledby="usage-title">
+    <header><h2 id="usage-title">訂閱用量</h2><button id="usage-refresh" class="icon-button" type="button" aria-label="重新讀取用量" title="重新讀取用量"><i data-icon="refresh"></i></button></header>
+    <section class="usage-provider">
+      <header><h3><i class="swatch claude" aria-hidden="true"></i>Claude <span id="usage-plan-claude"></span></h3><a href="https://claude.ai/settings/usage" target="_blank" rel="noopener noreferrer" aria-label="查看 Claude 的官方用量">查看全部 ↗</a></header>
+      <div id="usage-claude" class="usage-windows" aria-live="polite"></div>
+    </section>
+    <section class="usage-provider">
+      <header><h3><i class="swatch codex" aria-hidden="true"></i>Codex CLI <span id="usage-plan-codex"></span></h3><a href="https://chatgpt.com/codex/settings/usage" target="_blank" rel="noopener noreferrer" aria-label="查看 Codex 的官方用量">查看全部 ↗</a></header>
+      <div id="usage-codex" class="usage-windows" aria-live="polite"></div>
+    </section>
+  </section>
   <script defer src="./markdown-it.js"></script>
   <script type="module" src="./app.js"></script>
 </body>

@@ -11,6 +11,7 @@ import { openSlackHistory } from './office-slack.mjs';
 import { serveOfficeFile } from './office-files.mjs';
 import { officeModelCatalog } from './office-models.mjs';
 import { createOfficeOnboarding } from './office-onboarding.mjs';
+import { createOfficeUsage } from './office-usage.mjs';
 import { attachmentRequestBytes, readOfficeAttachments, serveOfficeAttachment } from './office-attachments.mjs';
 
 const staticFiles = new Map([
@@ -19,7 +20,7 @@ const staticFiles = new Map([
   ['/life.js', ['life.js', 'text/javascript']],
   ['/attachment-types.js', ['attachment-types.js', 'text/javascript']],
   ['/workspace-tools.js', ['workspace-tools.js', 'text/javascript']],
-  ['/style.css', ['style.css', 'text/css']]
+  ['/subscription-usage.js', ['subscription-usage.js', 'text/javascript']], ['/style.css', ['style.css', 'text/css']]
 ]);
 function problem(statusCode, message) { return Object.assign(new Error(message), { statusCode }); }
 function respond(res, status, data) {
@@ -43,7 +44,7 @@ async function readPayload(req, limit = 48000) {
   } catch { throw problem(400, '訊息格式錯誤。'); }
 }
 
-export function createOfficeServer({ runtime, backend, onboarding, slackHistory, artifactDir }) {
+export function createOfficeServer({ runtime, backend, onboarding, slackHistory, artifactDir, usage = createOfficeUsage() }) {
   const stateNamespace = randomUUID();
   let stateRevision = 0, stateCache;
   return http.createServer(async (req, res) => {
@@ -62,6 +63,7 @@ export function createOfficeServer({ runtime, backend, onboarding, slackHistory,
       if (checkLogin || setupAction) {
         if (origin !== 'http://' + host) throw problem(403, '請從本機辦公室頁面操作登入設定。');
         await readPayload(req);
+        usage.clear();
       }
       if (setupAction) {
         if (!onboarding) throw problem(404, '這個本機服務尚未提供自動設定。');
@@ -93,6 +95,11 @@ export function createOfficeServer({ runtime, backend, onboarding, slackHistory,
       }
       if (req.method === 'GET' && path === '/api/history/search') {
         return respond(res, 200, { results: runtime.searchHistory(searchParams.get('q')) });
+      }
+      const usageManager = req.method === 'GET' && /^\/api\/usage\/(claude|codex)$/.exec(path)?.[1];
+      if (usageManager) {
+        if (req.headers['sec-fetch-site'] === 'cross-site') throw problem(403, '請從本機辦公室查詢訂閱用量。');
+        return respond(res, 200, await usage.read(usageManager, searchParams.get('refresh') === '1'));
       }
       if (req.method === 'GET' && path === '/api/knowledge') {
         const actor = searchParams.get('actor') || 'claude';

@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { agentPaths, getGooseBin, projectDir } from './config.mjs';
 import { prepareAgent, runAgent } from './goose.mjs';
-import { getOfficeClaudeBin } from './office-auth.mjs';
+import { getOfficeClaudeBin, readClaudeSubscription } from './office-auth.mjs';
 import { inspectNativeCodex } from './office-codex.mjs';
 import { personalities } from '../office/life.js';
 
@@ -76,9 +76,7 @@ export async function inspectOfficeBackend() {
     access(join(projectDir, 'node_modules', '@agentclientprotocol', 'claude-agent-acp', 'package.json')),
     (async () => {
       const binary = await getOfficeClaudeBin().catch(() => { throw Object.assign(new Error('missing_claude'), { code: 'ENOENT' }); });
-      const { stdout } = await exec(binary, ['auth', 'status', '--json'], { ...prepareAgent('claude'), windowsHide: true, timeout: 20000 });
-      const status = JSON.parse(stdout);
-      if (!status.loggedIn || status.authMethod !== 'claude.ai') throw new Error('subscription login required');
+      if (!await readClaudeSubscription(binary, prepareAgent('claude'))) throw new Error('subscription login required');
     })(),
     inspectNativeCodex(prepareAgent('codex'))
   ]);

@@ -12,6 +12,7 @@ import { openStore } from '../src/store.mjs';
 import { readOfficeAttachments } from '../src/office-attachments.mjs';
 import { requiresNativeCodex } from '../src/office-models.mjs';
 import { runNativeCodex } from '../src/office-codex.mjs';
+import { claudeUsage, codexUsage, createOfficeUsage } from '../src/office-usage.mjs';
 
 async function officeServer(t, options = {}) {
   const calls = [];
@@ -21,7 +22,7 @@ async function officeServer(t, options = {}) {
   }});
   const slackHistory = options.slackHistory ?? {read: () => [], close() {}};
   const backend = options.backend ?? (async () => ({ready:true, managers:{claude:true,codex:true}}));
-  const server = createOfficeServer({runtime,slackHistory,backend,onboarding:options.onboarding});
+  const server = createOfficeServer({runtime,slackHistory,backend,onboarding:options.onboarding,usage:options.usage});
   server.listen(0, '127.0.0.1');
   await once(server,'listening');
   const port = server.address().port;
@@ -45,6 +46,47 @@ async function officeServer(t, options = {}) {
   }
   return {request, runtime, calls, port};
 }
+
+test('subscription windows use server percentages and omit missing values', () => {
+  const reset = '2026-11-23T01:00:00Z';
+  assert.deepEqual(claudeUsage({ rate_limits_available: true, rate_limits: {
+    five_hour: { utilization: 0, resets_at: reset }, seven_day: { utilization: null },
+    model_scoped: [{ display_name: 'Fable', utilization: 87, resets_at: null }]
+  } }), [
+    { label: '5 小時額度', used: 0, resetsAt: Date.parse(reset) },
+    { label: '每週額度 · Fable', used: 87, resetsAt: null }
+  ]);
+  const primary = { usedPercent: 23, windowDurationMins: 300, resetsAt: Date.parse(reset) / 1000 };
+  assert.deepEqual(codexUsage({ rateLimits: { primary }, rateLimitsByLimitId: { codex: { primary } } }), [
+    { label: '5 小時額度', used: 23, resetsAt: Date.parse(reset) }
+  ]);
+});
+
+test('usage is fetched on demand, shares parallel probes, and retries after expiry', async t => {
+  let now = 1000, reads = 0;
+  const usage = createOfficeUsage({ now: () => now, readers: {
+    async claude() { reads++; return { plan: 'pro', windows: [{ label: '每週額度', used: 12, resetsAt: null }] }; },
+    async codex() { throw new Error('service unavailable'); }
+  } });
+  const { request, calls, port } = await officeServer(t, { usage });
+  await request('/api/state');
+  assert.equal(reads, 0);
+  assert.equal((await request('/api/usage/claude', undefined, {'Sec-Fetch-Site':'cross-site'})).status, 403);
+  const [one, two] = await Promise.all([request('/api/usage/claude'), request('/api/usage/claude')]);
+  assert.equal(reads, 1);
+  assert.deepEqual(one.body, two.body);
+  assert.deepEqual(one.body, { status: 'ready', plan: 'pro', windows: [{ label: '每週額度', used: 12, resetsAt: null }], checkedAt: now });
+  assert.equal((await request('/api/usage/codex')).body.status, 'unavailable');
+  await request('/api/usage/claude?refresh=1');
+  assert.equal(reads, 1);
+  now += 60000;
+  await request('/api/usage/claude');
+  assert.equal(reads, 2);
+  await request('/api/connections/check', {}, { Origin: 'http://127.0.0.1:' + port });
+  await request('/api/usage/claude');
+  assert.equal(reads, 3);
+  assert.equal(calls.length, 0);
+});
 
 test('HTTP dispatch retries are idempotent and a follow-up by task id joins the conversation', async (t) => {
   const {request,runtime,calls} = await officeServer(t);

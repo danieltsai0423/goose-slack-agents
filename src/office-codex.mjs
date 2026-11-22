@@ -28,7 +28,7 @@ async function configuredWindowsSandbox() {
   }
 }
 
-export async function inspectNativeCodex({ cwd, env }) {
+async function readNativeCodexAccount({ cwd, env }, method, params) {
   const [command, prefix] = nativeCommand();
   const child = spawn(command, [...prefix, 'app-server', '--listen', 'stdio://', ...providerArgs], {
     cwd, env, windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'], signal: AbortSignal.timeout(9000)
@@ -36,6 +36,7 @@ export async function inspectNativeCodex({ cwd, env }) {
   child.on('error', () => {});
   child.stdin.on('error', () => {});
   const send = (id, method, params) => child.stdin.write(JSON.stringify({ id, method, params }) + '\n');
+  let plan;
   try {
     send(1, 'initialize', { clientInfo: { name: 'goose-office', title: 'Goose Office', version: '0.1.0' } });
     for await (const line of createInterface({ input: child.stdout, crlfDelay: Infinity })) {
@@ -44,20 +45,32 @@ export async function inspectNativeCodex({ cwd, env }) {
         child.stdin.write(JSON.stringify({ method: 'initialized' }) + '\n');
         send(2, 'account/read', { refreshToken: false });
       } else if (message.id === 2) {
-        if (message.result?.account?.type !== 'chatgpt') return {};
-        send(3, 'model/list', { limit: 100, includeHidden: false });
+        if (!message.result) break;
+        if (message.result.account?.type !== 'chatgpt') return null;
+        plan = message.result.account.planType;
+        send(3, method, params);
       } else if (message.id === 3) {
-        return Object.fromEntries((message.result?.data || [])
-          .filter(model => typeof model.model === 'string' && Array.isArray(model.supportedReasoningEfforts))
-          .map(model => [model.model, model.supportedReasoningEfforts.map(entry => entry.reasoningEffort)]));
+        if (message.result) return { plan, result: message.result };
+        break;
       } else if (message.id === 1) {
-        return {};
+        break;
       }
     }
-    return {};
+    throw new Error('Codex App Server did not return account data');
   } finally {
     child.stdin.end();
   }
+}
+
+export async function inspectNativeCodex(options) {
+  const response = await readNativeCodexAccount(options, 'model/list', { limit: 100, includeHidden: false });
+  return Object.fromEntries((response?.result.data || [])
+    .filter(model => typeof model.model === 'string' && Array.isArray(model.supportedReasoningEfforts))
+    .map(model => [model.model, model.supportedReasoningEfforts.map(entry => entry.reasoningEffort)]));
+}
+
+export function readNativeCodexLimits(options) {
+  return readNativeCodexAccount(options, 'account/rateLimits/read');
 }
 
 function readCodexEvents(onProgress) {

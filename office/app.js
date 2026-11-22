@@ -1,6 +1,7 @@
 import { createOfficeScene } from './scene.js';
 import { personalities, summarizeBrief } from './life.js';
 import { mountWorkspaceTools } from './workspace-tools.js';
+import { mountSubscriptionUsage } from './subscription-usage.js';
 const {
   attachmentFileBytes, attachmentImageBytes, attachmentLimit, attachmentTotalBytes, attachmentType, attachmentTypes = {}
 } = await import('./attachment-types.js').catch(() => ({}));
@@ -12,6 +13,7 @@ const icons = {
   plus: '<path d="M5 12h14 M12 5v14"/>',
   chat: '<path d="M4 4h16v12H9l-5 4z M8 8h8 M8 12h5"/>',
   compose: '<path d="M13 4H5v15h15v-8 M11 13l1-4 7-7 3 3-7 7z"/>',
+  back: '<path d="M19 12H5m7-7-7 7 7 7"/>',
   chev: '<path d="m7 10 5 5 5-5"/>', send: '<path d="m3 11 17-8-5 18-4-7z M11 14l9-11"/>',
   people: '<circle cx="9" cy="8" r="3"/><path d="M3 20v-3a6 6 0 0 1 12 0v3 M16 5a3 3 0 0 1 0 6 M18 14a5 5 0 0 1 3 5"/>',
   pointer: '<path d="m4 3 5 16 3-6 6-3z"/>',
@@ -35,6 +37,7 @@ function el(tag, className, value) {
   if (value != null) item.textContent = value;
   return item;
 }
+const subscriptionUsage = mountSubscriptionUsage(el);
 function pixelArt(canvas, rows, palette) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -473,7 +476,8 @@ function renderControls(){
   $('chat-board').hidden=!threadId||!state.tasks.some(task=>task.threadId===threadId&&task.hasWorkflow);
   $('chat-heading').textContent=slackId?'Slack 對話紀錄':threadId?'任務對話':'任務交辦台';
   document.querySelector('.recipients').hidden=!!slackId;
-  $('composer').hidden=!!slackId;$('execution-help').hidden=!!slackId;
+  $('composer').hidden=!!slackId;$('compose-footer').hidden=!!slackId;
+  if(slackId)subscriptionUsage.close();
   renderModelSettings();
   renderDraftAttachments();
   workspaceTools.renderDraft();
@@ -553,7 +557,8 @@ function refreshTimers() {
   for(const timer of chatBox.querySelectorAll('[data-active-since]'))timer.textContent=activityAge(timer.dataset.activeSince);
 }
 function renderActivity(task,rows,staff) {
-  const open=active.has(task.status)||task.status==='queued';
+  const isRunning=active.has(task.status);
+  const open=isRunning||task.status==='queued';
   const details=el('details','activity-group');
   details.open=expandedActivities.get(task.id) ?? open;
   const headline=el('summary');
@@ -561,7 +566,9 @@ function renderActivity(task,rows,staff) {
   const latest=running.at(-1) || rows.at(-1);
   const actor=staff.find(p=>p.id===latest?.actor)?.name || titleFor(task.manager);
   const current=open?(latest?(activityKinds[latest.kind] || latest.label):readable(task.status)):'工作紀錄';
-  headline.append(el('span','activity-indicator '+(open?'running':'')),el('strong','',actor),el('span','activity-current',current));
+  const indicator=el('span',isRunning?'activity-indicator running':'activity-indicator');
+  indicator.setAttribute('aria-hidden','true');
+  headline.append(indicator,el('strong','',actor),el('span','activity-current',current));
   if(rows.length) {
     const timer=el('time','',activityAge(rows[0].startedAt,open?null:task.updatedAt));
     if(open)timer.dataset.activeSince=rows[0].startedAt;
@@ -689,6 +696,7 @@ function showView(next) {
   view=next;
   $('floor-view').hidden=next!=='floor';$('history-view').hidden=next!=='history';
   $('history-page-head').hidden=next!=='history';
+  $('chat-new').hidden=next!=='floor';$('chat-return').hidden=next!=='history';
   for(const [key,id] of [['floor','floor-nav'],['history','history-nav']]){
     const b=$(id); b.classList.toggle('selected',key===next);
     if(key===next)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
@@ -856,6 +864,11 @@ $('teams').onclick=e=>{const b=e.target.closest('[data-employee]');if(b)selectEm
 $('search').oninput=$('hist-filter').onchange=renderList;
 for(const b of document.querySelectorAll('[data-target]'))b.onclick=()=>{targetTouched=true;choice=b.dataset.target;saveDraft();note('');renderControls();};
 $('chat-new').onclick=$('history-new').onclick=()=>{openNew();goChatMobile();field.focus({preventScroll:true});};
+$('chat-return').onclick=()=>{
+  showView('floor');
+  goChatMobile();
+  $('chat-heading').focus({preventScroll:true});
+};
 $('chat-board').onclick=()=>{source='board';workspaceTools.setBoardThread(threadId);showView('history');};
 $('attach').onclick=()=>attachmentInput.click();
 attachmentInput.onchange=()=>{

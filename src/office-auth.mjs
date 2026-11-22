@@ -21,6 +21,13 @@ export async function getOfficeClaudeBin() {
   return claudeCliPath();
 }
 
+export async function readClaudeSubscription(binary, options) {
+  const { stdout } = await exec(binary, ['auth', 'status', '--json'], { ...options, windowsHide: true, timeout: 8000 })
+    .catch(error => { if (error.code === 1 && error.stdout) return error; throw error; });
+  const { loggedIn, authMethod, subscriptionType } = JSON.parse(stdout);
+  return loggedIn && authMethod === 'claude.ai' ? { plan: subscriptionType } : null;
+}
+
 async function ensureOfficeClaude(signal, onInstall) {
   try {
     return await getOfficeClaudeBin();

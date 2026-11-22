@@ -2,12 +2,14 @@
 
 在一個私人 Slack 頻道中，讓 `Goose-Codex` 和 `Goose-Claude` 各用自己的 Bot 身分回覆。單一橋接器接收頻道訊息，用 SQLite 記錄討論串。Goose 只在點名或啟用協作時呼叫模型。
 
+接手開發或維護時，可查看 [代理交接手冊](AGENTS.md) 的架構、執行流程與驗證方式。
+
 | Agent | Goose provider | 帳號 |
 | --- | --- | --- |
 | Goose-Codex | `chatgpt_codex` | 橋接器專用 Goose 設定中的 ChatGPT Plus 瀏覽器登入 |
 | Goose-Claude | `claude-acp` | 相同系統帳戶內，原版 Claude Code 登入的個人 Claude 訂閱 |
 
-這個版本供一位真人操作。服務用 Slack 使用者 ID 驗證真人，用兩組 Bot token 發言。Goose 子程序使用獨立的設定、工作目錄和受限的環境變數。預設只處理對話、方案與審查，每輪停用 Goose 的預設擴充套件，工作目錄在 `.data`。Claude ACP 仍使用 Claude Code 自身的工具與權限模型，這個配置沒有提供 OS 層級沙箱。Anthropic 對第三方工具的可用性及扣款方式取決於帳號與服務端規則。 [Anthropic 第三方工具登入](https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account)
+服務用指定的 Slack 使用者 ID 驗證指令，用兩組 Bot token 發言。普通對話在 `.data` 的獨立工作目錄進行，並停用開發工具。使用「執行：」啟動的工作會以橋接器的系統帳號權限使用檔案和 Shell 工具，無須逐項提示核准。Anthropic 對第三方工具的可用性及扣款方式取決於帳號與服務端規則。 [Anthropic 第三方工具登入](https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account)
 
 ## 本機設定
 
@@ -17,7 +19,7 @@
 
 在交辦台選 Claude、Codex 或雙主管，送出任務後可在同一討論串追問。Claude 帶研究員 Mira 和審閱員 Theo，Codex 帶工程師 Finn 和測試員 Nova。子代理是獨立的 Goose 回合，沿用該組主管的訂閱。主管可親自回覆，或選擇員工、分派事項並審閱成果。「執行：」開頭的網頁交辦可使用本機工具，兩位主管在網頁上的主機工作依序執行。
 
-對話支援 Markdown 粗體、清單、表格、連結與程式碼。任務執行時可展開工作紀錄查看各回合、Goose 回傳的工具事件和耗時；完成後紀錄仍可查看。已授權的本機任務可將產出放進該任務的 `.data/office-files` 子資料夾，用 `[成果檔名](office-file:成果檔名)` 回傳下載連結。常用圖片、影片與音訊格式也會在對話裡提供預覽。
+對話支援 Markdown 粗體、清單、表格、連結與程式碼。執行中的工作紀錄會顯示旋轉圓環，展開後可看各回合、工具事件與耗時，結束後仍可查看紀錄。從「任務紀錄」按對話右上角的返回箭頭，會帶著目前的網頁任務和草稿回到辦公室，可在原任務串續辦。已授權的本機任務可將產出放進該任務的 `.data/office-files` 子資料夾，用 `[成果檔名](office-file:成果檔名)` 回傳下載連結。常用圖片、影片與音訊格式也會在對話裡提供預覽。
 
 交辦台的「附件」支援 PNG、JPEG、WebP、PDF、TXT、Markdown、CSV 和 JSON。也可在訊息欄直接貼上截圖。一次最多 5 個檔案，單張圖片 7 MB、其他附件 10 MB，合計 20 MB。主管會收到圖片、擷取的文件文字，以及掃描 PDF 的部分頁面。送出的原檔可在任務對話下載。
 
@@ -39,6 +41,8 @@ node .tools/office-codex/node_modules/@openai/codex/bin/codex.js login
 ```
 
 重新開啟登入面板並按「重新檢查」即可更新可用的 Effort。
+
+交辦框右下角的「訂閱用量」可查看目前帳號的已用百分比、重置時間，以及官方用量頁。Codex 讀取原生 Codex CLI 登入帳號。Claude 使用 Claude Code 的用量查詢，這兩項查詢都不會送出模型訊息。
 
 任務與對話存於 `.data/office.sqlite`。任務紀錄的 Slack 頁籤會讀取現有橋接器已存到本機的近期討論串。網頁交辦及回覆保存在辦公室；要繼續從 Slack 收訊，另開終端執行原有的 `npm start`。可用 `OFFICE_PORT` 更改網頁服務埠。
 
@@ -86,6 +90,9 @@ npm run smoke -- claude
 | `@all 各自比較這兩個方案` | 兩個 Agent 平行讀取同一份快照，各自回覆。`@all` 直接打成文字。 |
 | Slack 原生點名 `@頻道 報數` 或 `@這裡 報數` | 在訊息開頭選擇 `@頻道` 或 `@這裡`，效果同 `@all`，會叫到兩位 Agent。Slack 也會依該點名設定通知頻道成員。 |
 | `@all 一起完成這個方案` | 開啟該 thread 的自主回覆。Claude 先回答，Codex 讀取 Claude 回覆後接力，每次觸發最多四輪。開頭也可用「協作」或「接力」。 |
+| `@Goose-Claude 執行：跑測試並回報結果` | 請在訊息開頭用 Slack 點名 Agent。被點名的 Agent 會使用主機工具執行，結果回到同一串。Goose-Codex 也可用相同方式點名。 |
+| `@Goose-Codex 執行：用 Summon 委派 1 個子代理檢查測試設定` | Goose-Codex 可以透過 Summon 把工作交給 Goose 子代理，再整理結果回到同一串。 |
+| `@all 執行：檢查這個專案並跑測試` | Claude 先執行，Codex 接著檢查結果並補做。 |
 | `!auto on` / `!auto off` | 開啟或關閉所在 thread 的自主回覆。 |
 | `!stop` | 關閉所在 thread 的自主回覆，停止執行中的模型程序並清掉排隊工作。已送出的 Slack 回覆會保留。 |
 

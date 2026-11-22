@@ -89,6 +89,27 @@ test('@all collaboration includes prior bot replies and has a four-turn cap', as
   assert.equal(calls.length, 4);
 });
 
+test('host execution requires a leading mention and an explicit command from the owner', async (t) => {
+  const { bridge, calls, sent } = fixture(t, ({ id }) => ({ reply: `${id} 已驗證`, nextAgent: 'codex' }));
+  const thread = '1700000000.000001';
+  bridge.receive(message(thread, '任務背景'));
+  bridge.receive(message('1700000000.000002', '<@UCODEX> 執行：外人發令', { user: 'UOTHER', thread_ts: thread }));
+  bridge.receive(message('1700000000.000003', '@all 執行：Bot 發令', { user: 'UCLAUDE', thread_ts: thread }));
+  bridge.receive(message('1700000000.000004', '討論 <@UCODEX> 執行：這個寫法', { thread_ts: thread }));
+  bridge.receive(message('1700000000.000005', '<@UCLAUDE> 執行：跑測試並把結果給 <@UCODEX>', { thread_ts: thread }));
+  bridge.receive(message('1700000000.000006', '@all 執行：查看工作目錄', { thread_ts: thread }));
+  await bridge.idle();
+
+  assert.deepEqual(calls.map(({ id, execute }) => [id, execute]), [
+    ['codex', false], ['claude', true], ['claude', true], ['codex', true]
+  ]);
+  assert.equal(calls[1].request, '跑測試並把結果給 <@UCODEX>');
+  assert.equal(calls[2].request, '查看工作目錄');
+  assert.ok(calls[3].messages.some(({ text }) => text === 'claude 已驗證'));
+  assert.ok(calls.filter(({ execute }) => execute).every(({ canDelegate }) => !canDelegate));
+  assert.ok(sent.every((reply) => reply.thread === thread));
+});
+
 test('a passive follow-up only runs after auto mode is enabled and agents may skip', async (t) => {
   const { bridge, calls, sent } = fixture(t, ({ id }) => ({ reply: id === 'codex' ? '有更新' : '', nextAgent: null }));
   const thread = '1700000000.000001';
