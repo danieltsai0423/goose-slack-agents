@@ -18,10 +18,10 @@ const osVariables = new Set([
   'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS'
 ]);
 
-export function prepareAgent(id, execute = false, officeEffort) {
+export function prepareAgent(id, execute = false, officeEffort, folder) {
   const { home, workDir } = agentPaths(id);
   mkdirSync(home, { recursive: true });
-  const cwd = execute ? executionDir : workDir;
+  const cwd = execute ? folder || executionDir : workDir;
   if (execute) {
     if (!statSync(cwd, { throwIfNoEntry: false })?.isDirectory()) throw new Error('work_dir');
   } else {
@@ -282,17 +282,17 @@ async function invokeVisualTurn({ options, extensions, prompt, payload, images, 
   }
 }
 
-export async function runAgent({ id, request, messages, required, canDelegate, execute = false, signal, timeoutMs,
+export async function runAgent({ id, request, messages, required, canDelegate, execute = false, fullAccess = false, workDir, signal, timeoutMs,
   officeInstructions, onProgress, modelOverride, effortOverride, attachmentText, images = [], artifactDir, officeContext, maySuggest }) {
   const { provider } = agentConfig[id];
   const model = modelOverride ?? agentConfig[id].model;
-  const options = prepareAgent(id, execute, effortOverride);
+  const options = prepareAgent(id, execute, effortOverride, workDir);
   Object.assign(options.env, { GOOSE_PROVIDER: provider, GOOSE_MODEL: model });
   const prompt = officeInstructions ?? systemPrompt(id, required, canDelegate, execute);
   const payload = JSON.stringify({ request, messages, attachments: attachmentText, officeContext });
   if (id === 'codex' && officeInstructions && requiresNativeCodex(model, effortOverride)) {
     const invoke = () => runNativeCodex({
-      model, effort: effortOverride, execute, artifactDir, images, input: `${prompt}\n\n${payload}`, onProgress,
+      model, effort: effortOverride, execute, fullAccess, artifactDir, images, input: `${prompt}\n\n${payload}`, onProgress,
       invoke: (command, args, input, feed) => invokeAgentCommand(command, args, input, options, signal, timeoutMs, feed, 'codex')
     });
     const answer = await (execute ? withHostTurnLock(id, signal, timeoutMs, invoke) : invoke());

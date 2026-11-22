@@ -87,7 +87,7 @@ export function openOfficeWorkflows(db) {
     SELECT ${stepColumns} FROM office_workflow_steps s LEFT JOIN messages m ON m.id=s.resultId
     WHERE s.taskId IN (SELECT value FROM json_each(?)) ORDER BY s.taskId,s.position
   `);
-  const columns = 't.id,t.threadId,t.manager,t.text,t.status,t.updatedAt';
+  const columns = 't.id,t.threadId,t.manager,t.text,t.status,t.updatedAt,t.access';
   const list = db.prepare(`
     SELECT ${columns} FROM office_workflows w JOIN tasks t ON t.id=w.taskId ORDER BY w.createdAt DESC LIMIT 36
   `);

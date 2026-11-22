@@ -20,8 +20,14 @@ export const officeStaff = [
 const byId = new Map(officeStaff.map((member) => [member.id, member]));
 const workerIds = new Set(officeStaff.filter(person => person.kind === 'worker').map(person => person.id));
 const liveStates = new Set(['planning', 'working', 'delegated', 'reviewing']);
-const taskColumns = 'id, threadId, manager, text, status, workerId, createdAt, updatedAt, model, effort';
+const taskColumns = 'id, threadId, manager, text, status, workerId, createdAt, updatedAt, model, effort, workDir, access';
 const executionPrefix = /^(?:執行|execute)\s*[:：]\s*(\S[\s\S]*)$/iu;
+export const accessModes = ['chat', 'workspace', 'full'];
+// Tasks from before the permission menu carry no mode; their 「執行：」 prefix granted tools.
+export function taskAccess(task) {
+  return accessModes.includes(task?.access) ? task.access : executionPrefix.test(task?.text ?? '') ? 'workspace' : 'chat';
+}
+const hostTask = task => taskAccess(task) !== 'chat';
 const interrupted = '辦公室服務已中斷，這次工作未確認完成。可以在討論串中重新交辦。';
 const stageLabels = { plan: '評估交辦', self: '親自處理', delegate: '執行分派任務', review: '審閱成果' };
 const failures = {
@@ -52,7 +58,7 @@ function decodePlan(text, workers, canAnswer) {
   return {};
 }
 
-export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 180000, onChange = () => {} }) {
+export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 180000, hostTimeoutMs = 900000, onChange = () => {} }) {
   if (typeof runAgent !== 'function') throw new TypeError('需要設定辦公室模型執行器。');
   let writer;
   let db;
@@ -99,6 +105,8 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
     const columns = new Set(db.prepare('PRAGMA table_info(tasks)').all().map(column => column.name));
     if (!columns.has('model')) db.exec('ALTER TABLE tasks ADD COLUMN model TEXT');
     if (!columns.has('effort')) db.exec('ALTER TABLE tasks ADD COLUMN effort TEXT');
+    if (!columns.has('workDir')) db.exec('ALTER TABLE tasks ADD COLUMN workDir TEXT');
+    if (!columns.has('access')) db.exec('ALTER TABLE tasks ADD COLUMN access TEXT');
     db.exec('BEGIN IMMEDIATE');
     history = openOfficeHistory(db);
     knowledge = openOfficeKnowledge(db, byId);
@@ -182,7 +190,7 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
         OR (? AND m.taskId=? AND m.author!='user')
         OR (? AND m.taskId!=? AND t.clientId=(SELECT clientId FROM tasks WHERE id=?) AND m.author!='user')
       ) ORDER BY m.id DESC LIMIT 30
-    `).all(task.threadId, task.id, Number(includeCurrent), task.id, Number(executionPrefix.test(task.text)), task.id, task.id);
+    `).all(task.threadId, task.id, Number(includeCurrent), task.id, Number(hostTask(task)), task.id, task.id);
     let remaining = 14000;
     const result = [];
     // Include the original brief even after a long series of follow-ups, but never
@@ -203,6 +211,8 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
   async function processTask(task, signal) {
     const manager = byId.get(task.manager);
     const workers = officeStaff.filter((person) => person.kind === 'worker' && person.manager === manager.id);
+    const access = taskAccess(task);
+    const host = access !== 'chat';
     const command = executionPrefix.exec(task.text);
     let remaining = attachmentTotalBytes;
     let visualPages = 4;
@@ -225,7 +235,7 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
       signal.throwIfAborted();
       onBegin?.();
       const files = artifactDir ? join(artifactDir, task.id) : undefined;
-      const execute = Boolean(command && (stage === 'self' || stage === 'delegate'));
+      const execute = host && (stage === 'self' || stage === 'delegate');
       const draftKey = task.id + ':' + actor.id;
       const maySuggest = stage !== 'plan' || /記住|整理成技能|remember|reusable skill/iu.test(request);
       const tools = new Map();
@@ -246,16 +256,18 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
         const scopedKnowledge = knowledge.context(approvedKnowledge.get(actor.id), request + '\n' + (assignment ?? ''));
         const result = await runAgent({
           stage, id: actor.manager, actor: actor.id,
-          instructions: command ? instructions + ' 若另一位主管已先處理同一交辦，依紀錄驗證結果並接手剩餘事項，避免重複變更。' : instructions,
+          instructions: host ? instructions + ' 若另一位主管已先處理同一交辦，依紀錄驗證結果並接手剩餘事項，避免重複變更。' : instructions,
           request, assignment, workers, messages: context(task, stage !== 'delegate'), attachments, references, prerequisiteResults,
           knowledge: scopedKnowledge, maySuggest, threadId: task.threadId, taskId: task.id,
           model: actor.manager === manager.id ? task.model : undefined,
           effort: actor.manager === manager.id ? task.effort : undefined,
-          execute, files, signal, timeoutMs,
+          execute, access: execute ? access : 'chat', workDir: execute ? task.workDir ?? undefined : undefined, files, signal,
+          // Tool turns edit, build and test; chat turns stay on the short limit.
+          timeoutMs: execute ? Math.max(timeoutMs, hostTimeoutMs) : timeoutMs,
           onProgress(event) {
             if (signal.aborted) return;
             if (event.type === 'text') {
-              if (!event.text || (stage === 'plan' && command) || /^\s*(?:```(?:json)?\s*)?\{/.test(event.text)) {
+              if (!event.text || (stage === 'plan' && host) || /^\s*(?:```(?:json)?\s*)?\{/.test(event.text)) {
                 if (drafts.delete(draftKey)) invalidate({ draftOnly: true });
               } else {
                 const startedAt = drafts.get(draftKey)?.startedAt ?? new Date().toISOString();
@@ -328,7 +340,7 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
           const items = workflows.steps(task.id);
           const byKey = new Map(items.map(step => [step.key, step]));
           for (const step of items) {
-            if (command && running.size) break;
+            if (host && running.size) break;
             if (step.status !== 'pending' || !step.dependsOn.every(key => byKey.get(key).status === 'done')) continue;
             const provider = byId.get(step.worker).manager;
             if (running.has(provider)) continue;
@@ -371,10 +383,10 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
         '簡單的對話自己回答，適合團隊成員的具體工作分派給對應角色。',
         '分派時只輸出 {"route":"delegate","worker":"員工 ID","assignment":"本次工作內容"}。',
         '有多個有明確產出或依賴的工序，可輸出 {"route":"workflow","steps":[{"key":"a","worker":"員工 ID","assignment":"本次工作","dependsOn":[]}]}。最多六個工序，只能用自己的員工，dependsOn 列出前置工序的 key，禁止循環。',
-        command ? '若要親自執行，只輸出 {"route":"self"}，實際操作會在下一回合開始。'
+        host ? '若要親自執行，只輸出 {"route":"self"}，實際操作會在下一回合開始。'
           : '若可親自用文字回答，現在就直接給使用者簡潔的 Markdown 答覆。'
       ].join('\n'));
-      const delegation = decodePlan(plan.reply, workers, !command);
+      const delegation = decodePlan(plan.reply, workers, !host);
       if (delegation.reply) {
         change(task, 'done', { author: manager.id, text: delegation.reply });
         return;
@@ -400,7 +412,7 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
 
   function recoverWorkflow(task) {
     const now = new Date().toISOString();
-    const host = executionPrefix.test(task.text);
+    const host = hostTask(task);
     transaction(() => {
       if (host) workflows.interrupted(task.id, 'interrupted', interrupted, now);
       else workflows.restore(task.id);
@@ -419,7 +431,7 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
       while (!closing) {
         const job = db.prepare('SELECT ' + taskColumns + " FROM tasks WHERE manager=? AND status='queued' ORDER BY rowid LIMIT 1").get(manager);
         if (!job) return;
-        if (executionPrefix.test(job.text)) {
+        if (hostTask(job)) {
           // Both providers share GOOSE_WORK_DIR. A second host task must see the
           // result of the first before it begins making changes.
           const execution = hostTail.then(() => {
@@ -440,7 +452,7 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
 
   const findClient = db.prepare('SELECT * FROM requests WHERE clientId=?');
   const clientTasks = db.prepare('SELECT ' + taskColumns + ' FROM tasks WHERE clientId=? ORDER BY rowid');
-  function submitMany({ managers: selected, text, threadId, clientId, modelSettings, attachments = [],
+  function submitMany({ managers: selected, text, threadId, clientId, modelSettings, attachments = [], workDir = null, access,
     nativeCodexEfforts, references, workflow, availableManagers } = {}) {
     if (closing) throw fault('服務正在關閉。', 503);
     if (!Array.isArray(selected) || !selected.length || selected.length > 2 ||
@@ -457,6 +469,8 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
       throw fault('有工序所屬的主管尚未登入。', 503);
     }
     if (threadId != null && (typeof threadId !== 'string' || !threadId || threadId.length > 128)) throw fault('討論串格式錯誤。', 400);
+    if (access !== undefined && !accessModes.includes(access)) throw fault('權限模式格式錯誤。', 400);
+    if (workDir !== null && (typeof workDir !== 'string' || !workDir)) throw fault('專案資料夾格式錯誤。', 400);
     if (clientId != null && (typeof clientId !== 'string' || !/^[a-zA-Z0-9_.:-]{1,128}$/.test(clientId))) throw fault('請求識別碼格式錯誤。', 400);
     clientId ??= randomUUID();
     text = text.trim();
@@ -464,6 +478,7 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
     const settings = normalizeOfficeModels(modelSettings, targets, nativeCodexEfforts);
     const requestFields = [targets, text, threadId ?? null];
     if (Object.keys(settings).length) requestFields.push(settings);
+    if (access !== undefined) requestFields.push({ access });
     if (attachments.length) requestFields.push(attachments.map(({ name, hash }) => [name, hash]));
     if (quotes.length || steps) requestFields.push({ references: references?.map(({ id, offset }) => [id, offset]), steps });
     const fingerprint = JSON.stringify(requestFields);
@@ -484,8 +499,8 @@ export function createOfficeRuntime({ file, runAgent, artifactDir, timeoutMs = 1
       const ids = targets.map((manager) => {
         const id = randomUUID();
         const selection = settings[manager];
-        db.prepare("INSERT INTO tasks(id,clientId,threadId,manager,text,status,createdAt,updatedAt,model,effort) VALUES (?,?,?,?,?,'queued',?,?,?,?)")
-          .run(id, clientId, thread, manager, text, now, now, selection?.model ?? null, selection?.effort ?? null);
+        db.prepare("INSERT INTO tasks(id,clientId,threadId,manager,text,status,createdAt,updatedAt,model,effort,workDir,access) VALUES (?,?,?,?,?,'queued',?,?,?,?,?,?)")
+          .run(id, clientId, thread, manager, text, now, now, selection?.model ?? null, selection?.effort ?? null, workDir, access ?? null);
         return id;
       });
       logMessage.run(thread, ids[0], targets.length === 2 ? 'both' : targets[0], 'user', text, now);

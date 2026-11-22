@@ -369,7 +369,69 @@ button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit;bo
   gap: 8px;
   margin-top: 4px;
 }
-.compose-footer #execution-help { margin-top: 4px; }
+.footer-tools { display: flex; align-items: center; gap: 4px; min-width: 0; margin-top: 3px; }
+.folder-picker { position: relative; min-width: 0; }
+.compose-footer { position: relative; }
+.access-mode { flex: none; }
+.access-trigger {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 8px; border-radius: 7px; color: var(--soft); font-size: .78rem; white-space: nowrap;
+}
+.access-trigger svg, .access-icon svg { width: 15px; height: 15px; }
+.access-trigger .folder-chev svg { width: 13px; height: 13px; }
+.access-trigger:hover:not(:disabled), .access-trigger[aria-expanded="true"] { color: var(--ink); background: var(--hover, #2a363c); }
+.access-mode[data-mode="workspace"] .access-trigger { color: var(--ink); background: var(--hover, #26323a); }
+.access-mode[data-mode="full"] .access-trigger, .access-mode[data-mode="full"] .access-trigger:hover { color: var(--clay); background: color-mix(in srgb, var(--clay) 14%, transparent); }
+.access-menu {
+  position: absolute; z-index: 30; left: 0; right: 0; bottom: calc(100% + 6px);
+  max-width: 340px; padding: 6px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink);
+  box-shadow: 0 10px 28px #0006;
+}
+[data-theme="light"] .access-menu { box-shadow: 0 10px 28px #23372c26; }
+.access-item {
+  display: grid; grid-template-columns: 20px 1fr 18px; align-items: start; gap: 9px;
+  width: 100%; padding: 8px 10px; border-radius: 8px; text-align: left;
+}
+.access-item:hover, .access-item:focus-visible { background: var(--hover, #2a363c); color: var(--ink); outline: none; }
+.access-item-icon { padding-top: 2px; color: var(--soft); }
+.access-item-icon svg { width: 17px; height: 17px; }
+.access-text { display: grid; gap: 1px; min-width: 0; }
+.access-text b { font-size: .88rem; font-weight: 600; }
+.access-text small { color: var(--soft); font-size: .74rem; line-height: 1.45; }
+.access-item[data-mode="full"] :is(.access-item-icon, b, small) { color: var(--clay); }
+.access-check { align-self: center; color: var(--blue); }
+.access-item[data-mode="full"] .access-check { color: var(--clay); }
+.access-check svg { width: 16px; height: 16px; stroke-width: 2; }
+.folder-trigger {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  padding: 4px 8px; border-radius: 7px; color: var(--soft); font-size: .78rem;
+}
+.folder-trigger svg { width: 15px; height: 15px; }
+.folder-trigger .folder-chev svg { width: 13px; height: 13px; }
+.folder-trigger #folder-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-trigger.is-set { color: var(--ink); background: var(--hover, #26323a); }
+.folder-trigger:hover:not(:disabled), .folder-trigger[aria-expanded="true"] { color: var(--ink); background: var(--hover, #2a363c); }
+.folder-picker[aria-busy="true"] .folder-trigger { opacity: .7; cursor: progress; }
+.folder-menu {
+  position: absolute; z-index: 30; left: 0; bottom: calc(100% + 6px);
+  width: min(250px, calc(100vw - 32px)); padding: 6px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel); color: var(--ink);
+  box-shadow: 0 10px 28px #0006;
+}
+[data-theme="light"] .folder-menu { box-shadow: 0 10px 28px #23372c26; }
+.folder-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; padding: 7px 10px; border-radius: 7px; text-align: left; font-size: .87rem;
+}
+.folder-item:hover:not(:disabled), .folder-item:focus-visible { background: var(--hover, #2a363c); color: var(--ink); outline: none; }
+.folder-item:disabled { color: var(--soft); opacity: .6; text-decoration: line-through; }
+.folder-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-check { display: inline-flex; flex: none; color: var(--blue); }
+.folder-check svg { width: 16px; height: 16px; stroke-width: 2; }
+.folder-sep { height: 1px; margin: 5px 8px; background: var(--line); }
+.folder-heading { padding: 4px 10px 2px; color: var(--soft); font-size: .74rem; }
 .usage-trigger {
   display: grid;
   flex: none;

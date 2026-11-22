@@ -27,7 +27,7 @@
 - **網頁雙主管**各自收到同一份交辦。主管可直接回覆，或自動分派同組員工。Claude 組是 Mira `claude-research` 和 Theo `claude-review`，Codex 組是 Finn `codex-build` 和 Nova `codex-test`。
 - **網頁跨組分工**由使用者指定一位審閱主管，最多六個工序。工序只會在前置工序都成功後收到前置成果。不同模型服務的獨立純對話工序可並行，同一服務的回合依序執行。審閱在所有工序完成後開始。
 - **Slack 接力**使用 `@all 一起…` 讓 Claude 先答、Codex 接續，也會開啟該串的自主回覆。後續回合依交接結果決定，每次觸發上限由 `src/bridge.mjs` 的 `maxRounds` 控制，目前為 4。`!stop` 會取消該串進行中的回合、清空佇列並關閉自主回覆。
-- **本機操作**由目前這則交辦明確授權。網頁指令以「執行：」開頭。Slack 指令由設定的真人擁有者在指定頻道送出，開頭先點名代理或 `@all`，再接「執行：」。兩端共用同一個 `STATE_DIR` 時，模型的主機執行回合會透過 `host-turn.sqlite` 互斥。
+- **本機操作**由目前這則交辦明確授權。網頁由交辦台的權限按鈕（[office/access-mode.js](office/access-mode.js)）決定，每則交辦存入 `tasks.access`：`chat` 不用工具，`workspace` 在專案資料夾使用工具（原生 Codex 為 `workspace-write` 沙箱），`full` 不限檔案與網路（原生 Codex 為 `danger-full-access`）。Claude 與 Goose 路徑沒有沙箱，`workspace` 只靠指示限制範圍。沒有 `access` 的舊任務仍以「執行：」開頭判斷。使用工具的回合逾時是 `OFFICE_HOST_TURN_TIMEOUT_SECONDS`（預設 900 秒），對話回合仍用 `GOOSE_TURN_TIMEOUT_SECONDS`。執行目錄是交辦台左下角選的專案資料夾（[office/folder-picker.js](office/folder-picker.js)、[src/office-folders.mjs](src/office-folders.mjs)，存於 `STATE_DIR/office-folders.json`），送出時寫入該任務的 `workDir`；「不指定資料夾」或舊任務使用 `GOOSE_WORK_DIR`。「開啟資料夾…」在 Windows 由服務端開啟原生對話框。Slack 指令由設定的真人擁有者在指定頻道送出，開頭先點名代理或 `@all`，再接「執行：」。兩端共用同一個 `STATE_DIR` 時，模型的主機執行回合會透過 `host-turn.sqlite` 互斥。
 - **引用與知識**只作為輸入資料。送出的引用片段有自己的快照。記憶與技能須經核准才會給指定成員使用，技能還需要符合觸發詞。附件、舊對話與模型輸出均不能替目前的交辦授權執行工具。
 
 ## 登入、資料與重啟

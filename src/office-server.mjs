@@ -4,7 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { projectDir } from './config.mjs';
+import { executionDir, projectDir } from './config.mjs';
 import { createOfficeRuntime } from './office-runtime.mjs';
 import { inspectOfficeBackend, runOfficeAgent } from './office-runner.mjs';
 import { openSlackHistory } from './office-slack.mjs';
@@ -12,6 +12,7 @@ import { serveOfficeFile } from './office-files.mjs';
 import { officeModelCatalog } from './office-models.mjs';
 import { createOfficeOnboarding } from './office-onboarding.mjs';
 import { createOfficeUsage } from './office-usage.mjs';
+import { openOfficeFolders } from './office-folders.mjs';
 import { attachmentRequestBytes, readOfficeAttachments, serveOfficeAttachment } from './office-attachments.mjs';
 
 const staticFiles = new Map([
@@ -20,6 +21,8 @@ const staticFiles = new Map([
   ['/life.js', ['life.js', 'text/javascript']],
   ['/attachment-types.js', ['attachment-types.js', 'text/javascript']],
   ['/workspace-tools.js', ['workspace-tools.js', 'text/javascript']],
+  ['/folder-picker.js', ['folder-picker.js', 'text/javascript']],
+  ['/access-mode.js', ['access-mode.js', 'text/javascript']],
   ['/subscription-usage.js', ['subscription-usage.js', 'text/javascript']], ['/style.css', ['style.css', 'text/css']]
 ]);
 function problem(statusCode, message) { return Object.assign(new Error(message), { statusCode }); }
@@ -44,7 +47,7 @@ async function readPayload(req, limit = 48000) {
   } catch { throw problem(400, '訊息格式錯誤。'); }
 }
 
-export function createOfficeServer({ runtime, backend, onboarding, slackHistory, artifactDir, usage = createOfficeUsage() }) {
+export function createOfficeServer({ runtime, backend, onboarding, slackHistory, artifactDir, folders, usage = createOfficeUsage() }) {
   const stateNamespace = randomUUID();
   let stateRevision = 0, stateCache;
   return http.createServer(async (req, res) => {
@@ -92,6 +95,16 @@ export function createOfficeServer({ runtime, backend, onboarding, slackHistory,
         }
         res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         return res.end(stateCache.body);
+      }
+      if (path === '/api/folders' || path === '/api/folders/browse') {
+        if (!folders) throw problem(404, '這個本機服務未提供專案資料夾設定。');
+        if (req.method === 'GET' && path === '/api/folders') return respond(res, 200, folders.snapshot());
+        if (req.method !== 'POST') throw problem(405, '不支援這個操作。');
+        if (origin !== 'http://' + host) throw problem(403, '請從本機辦公室頁面選擇資料夾。');
+        const body = await readPayload(req, 4096);
+        if (path === '/api/folders/browse') return respond(res, 200, await folders.browse());
+        if (!Object.hasOwn(body, 'path')) throw problem(400, '請選擇資料夾。');
+        return respond(res, 200, folders.select(body.path));
       }
       if (req.method === 'GET' && path === '/api/history/search') {
         return respond(res, 200, { results: runtime.searchHistory(searchParams.get('q')) });
@@ -141,6 +154,7 @@ export function createOfficeServer({ runtime, backend, onboarding, slackHistory,
         if (!Array.isArray(body.managers) || body.managers.length < 1 || body.managers.length > 2 ||
           body.managers.some(id => !['claude', 'codex'].includes(id))) throw problem(400, '請選擇主管。');
         if (typeof body.text !== 'string' || body.text.length > 8000) throw problem(400, '任務訊息最多 8,000 字。');
+        const workDir = folders ? folders.forSubmission(body.workDir) : null;
         const config = await backend();
         if (!config.ready || body.managers.some(id => !config.managers[id])) throw problem(503, config.detail || '主管的訂閱登入尚未就緒。');
         let threadId;
@@ -150,7 +164,7 @@ export function createOfficeServer({ runtime, backend, onboarding, slackHistory,
           threadId = task.threadId;
         }
         const result = runtime.submitMany({
-          managers: body.managers, text: body.text, threadId, clientId: body.clientId, modelSettings: body.modelSettings,
+          managers: body.managers, text: body.text, threadId, clientId: body.clientId, modelSettings: body.modelSettings, workDir, access: body.access,
           nativeCodexEfforts: config.nativeCodexEfforts,
           references: body.references, workflow: body.workflow, availableManagers: config.managers,
           attachments: await readOfficeAttachments(body.attachments)
@@ -174,6 +188,8 @@ async function start() {
   const artifactDir = join(dir, 'office-files');
   const seconds = Number(process.env.GOOSE_TURN_TIMEOUT_SECONDS || 180);
   if (!(seconds >= 10 && seconds <= 900)) throw new Error('請檢查 GOOSE_TURN_TIMEOUT_SECONDS。');
+  const hostSeconds = Number(process.env.OFFICE_HOST_TURN_TIMEOUT_SECONDS || 900);
+  if (!(hostSeconds >= 60 && hostSeconds <= 3600)) throw new Error('OFFICE_HOST_TURN_TIMEOUT_SECONDS 必須介於 60 到 3600 秒。');
   mkdirSync(dir, { recursive: true });
   const history = openSlackHistory(dir, process.env.SLACK_CHANNEL_ID);
   let status, pendingCheck, checkedAt = 0;
@@ -202,10 +218,11 @@ async function start() {
     proposeKnowledge: input => runtime.proposeKnowledge(input), reviewKnowledge: (...args) => runtime.reviewKnowledge(...args),
     listWorkflows: thread => runtime.listWorkflows(thread), workflowTeams: id => runtime.workflowTeams(id),
     retryWorkflow: id => runtime.retryWorkflow(id)
-  }, backend, onboarding, slackHistory: history, artifactDir });
+  }, backend, onboarding, slackHistory: history, artifactDir,
+  folders: openOfficeFolders({ file: join(dir, 'office-folders.json'), defaultDir: executionDir }) });
   await new Promise((ok, fail) => server.once('error', fail).listen(port, '127.0.0.1', ok));
   try {
-    runtime = createOfficeRuntime({ file: join(dir, 'office.sqlite'), runAgent: runOfficeAgent, timeoutMs: seconds * 1000, artifactDir });
+    runtime = createOfficeRuntime({ file: join(dir, 'office.sqlite'), runAgent: runOfficeAgent, timeoutMs: seconds * 1000, hostTimeoutMs: hostSeconds * 1000, artifactDir });
   } catch (error) { server.close(); throw error; }
   backend();
   console.log(`Goose 數位辦公室 http://127.0.0.1:${port}/`);

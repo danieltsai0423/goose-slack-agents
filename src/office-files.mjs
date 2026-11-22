@@ -2,6 +2,7 @@ import { createReadStream } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { dirname, extname, join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { taskAccess } from './office-runtime.mjs';
 
 const previews = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
@@ -9,7 +10,7 @@ const previews = {
 };
 
 export async function serveOfficeFile(req, res, root, taskId, encodedName, task) {
-  if (!root || !task || !/^(?:執行|execute)\s*[:：]/iu.test(task.text)) return false;
+  if (!root || !task || taskAccess(task) === 'chat') return false;
   let name, file, size;
   try {
     name = decodeURIComponent(encodedName);

@@ -2,6 +2,8 @@ import { createOfficeScene } from './scene.js';
 import { personalities, summarizeBrief } from './life.js';
 import { mountWorkspaceTools } from './workspace-tools.js';
 import { mountSubscriptionUsage } from './subscription-usage.js';
+import { mountFolderPicker } from './folder-picker.js';
+import { mountAccessMode } from './access-mode.js';
 const {
   attachmentFileBytes, attachmentImageBytes, attachmentLimit, attachmentTotalBytes, attachmentType, attachmentTypes = {}
 } = await import('./attachment-types.js').catch(() => ({}));
@@ -24,7 +26,10 @@ const icons = {
   file: '<path d="M6 3h8l4 4v14H6z M14 3v5h4 M9 12h6 M9 16h6"/>',
   refresh: '<path d="M20 10a8 8 0 1 0-2 8m2-13v5h-5"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2 M12 20v2 M2 12h2 M20 12h2 M5 5l1.5 1.5 M17.5 17.5 19 19 M5 19l1.5-1.5 M17.5 6.5 19 5"/>',
-  moon: '<path d="M21 13a9 9 0 1 1-10-10 7 7 0 0 0 10 10Z"/>'
+  moon: '<path d="M21 13a9 9 0 1 1-10-10 7 7 0 0 0 10 10Z"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2l2 2.2h8.8A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  shield: '<path d="M12 3 5 6v5.5c0 4.3 3 7.9 7 9.5 4-1.6 7-5.2 7-9.5V6z M12 8v5 M12 16.2h.01"/>'
 };
 const iconMarkup = name => '<svg viewBox="0 0 24 24">' + icons[name] + '</svg>';
 for (const icon of document.querySelectorAll('[data-icon]')) {
@@ -904,6 +909,7 @@ $('composer').onsubmit=async e=>{
   const endpoint=existing?'/api/tasks/'+encodeURIComponent(existing.id)+'/messages':'/api/tasks';
   const key=draftKey(),pendingKey='pending:'+key,stored=getStore(pendingKey);
   const parts=[endpoint,managers,text];
+  const access=accessMode.value();parts.push(access);
   if(Object.keys(modelSettings).length)parts.push(modelSettings);
   if(entries.length)parts.push(entries.map(entry=>entry.id));
   if(quotes.length||workflow.length)parts.push({ quotes,workflow });
@@ -914,7 +920,7 @@ $('composer').onsubmit=async e=>{
   try{
     const attachments=entries.length ? await Promise.all(entries.map(encodeAttachment)) : undefined;
     const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({managers,text,clientId,modelSettings,attachments,
+      body:JSON.stringify({managers,text,clientId,modelSettings,attachments,workDir:folderPicker.value(),access,
         references:quotes.length?quotes:undefined,workflow:workflow.length?workflow:undefined
       }),signal:AbortSignal.timeout(entries.length?90000:12000)});
     const answer=await res.json().catch(()=>null);
@@ -927,6 +933,8 @@ $('composer').onsubmit=async e=>{
   }catch(error){note('送出未確認，草稿已保留。'+error.message);}
   finally{sending=false;renderControls();}
 };
+const accessMode=mountAccessMode({root:$('access-mode'),iconMarkup});
+const folderPicker=mountFolderPicker({root:$('folder-picker'),iconMarkup,onError:message=>note(message)});
 const workspaceTools=mountWorkspaceTools({
   el, people:identities, getDraftKey:draftKey, getStore, putStore, getChoice:()=>choice,
   setChoice(target) { choice=target; targetTouched=true; putStore(draftKey(),{text:field.value,choice}); },

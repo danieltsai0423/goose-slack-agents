@@ -112,16 +112,16 @@ function readCodexEvents(onProgress) {
   };
 }
 
-export async function runNativeCodex({ model, effort, execute, artifactDir, images, input, onProgress, invoke }) {
+export async function runNativeCodex({ model, effort, execute, fullAccess = false, artifactDir, images, input, onProgress, invoke }) {
   const [command, prefix] = nativeCommand();
   const args = [...prefix, 'exec', '--json', '--ephemeral', '--skip-git-repo-check', '--ignore-user-config',
-    '--sandbox', execute ? 'workspace-write' : 'read-only', '--model', model, ...providerArgs,
+    '--sandbox', !execute ? 'read-only' : fullAccess ? 'danger-full-access' : 'workspace-write', '--model', model, ...providerArgs,
     '-c', `model_reasoning_effort="${effort}"`, '-c', 'approval_policy="never"', '-c', 'web_search="disabled"',
     '-c', 'features.apps=false', '-c', 'features.multi_agent=false', '-c', 'features.multi_agent_v2=false',
     '-c', 'features.skill_mcp_dependency_install=false'];
   if (!execute) args.push('-c', 'features.shell_tool=false', '-c', 'features.view_image=false', '-c', 'features.shell_snapshot=false');
   if (execute && artifactDir) args.push('--add-dir', artifactDir);
-  if (execute && process.platform === 'win32') {
+  if (execute && !fullAccess && process.platform === 'win32') {
     const sandbox = await configuredWindowsSandbox();
     if (sandbox) args.push('-c', `windows.sandbox="${sandbox}"`);
   }

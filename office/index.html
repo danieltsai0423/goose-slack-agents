@@ -116,7 +116,23 @@
             </div>
           </form>
           <div class="compose-footer" id="compose-footer">
-            <details id="execution-help"><summary><i data-icon="info"></i>本機執行權限</summary><p>需要主管操作工作目錄時，請以「執行：」開頭並寫明操作內容。</p></details>
+            <div class="footer-tools">
+            <div class="folder-picker" id="folder-picker">
+              <button id="folder-trigger" class="folder-trigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="folder-menu" disabled><i data-icon="folder"></i><span id="folder-label">不指定資料夾</span><i data-icon="chev" class="folder-chev"></i></button>
+              <div id="folder-menu" class="folder-menu" role="menu" aria-label="專案資料夾" hidden>
+                <button id="folder-none" class="folder-item" type="button" role="menuitemradio" aria-checked="true"><span class="folder-name">不指定資料夾</span><span class="folder-check" aria-hidden="true"></span></button>
+                <div class="folder-sep" role="separator"></div>
+                <p class="folder-heading" id="folder-recent-heading" hidden>最近</p>
+                <div id="folder-recent" role="group" aria-labelledby="folder-recent-heading"></div>
+                <div class="folder-sep" role="separator"></div>
+                <button id="folder-browse" class="folder-item" type="button" role="menuitem" hidden><span class="folder-name">開啟資料夾…</span></button>
+              </div>
+            </div>
+            <div class="access-mode" id="access-mode">
+              <button id="access-trigger" class="access-trigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="access-menu"><span id="access-icon" class="access-icon" aria-hidden="true"></span><span id="access-label">僅對話</span><i data-icon="chev" class="folder-chev"></i></button>
+              <div id="access-menu" class="access-menu" role="menu" aria-label="權限模式" hidden></div>
+            </div>
+            </div>
             <button class="usage-trigger" id="usage-trigger" type="button" popovertarget="subscription-usage" aria-label="訂閱用量" title="訂閱用量"><span class="usage-ring" aria-hidden="true"></span></button>
           </div>
           <p id="form-note" role="status" hidden></p>

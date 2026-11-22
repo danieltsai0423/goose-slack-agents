@@ -255,7 +255,7 @@ export function mountWorkspaceTools({ el, people, getDraftKey, getStore, putStor
           steps.append(row);
         }
         card.append(steps);
-        const hostInterrupted = /^(?:執行|execute)\s*[:：]/iu.test(workflow.text) && workflow.steps.some(step => step.status === 'interrupted');
+        const hostInterrupted = (workflow.access ? workflow.access !== 'chat' : /^(?:執行|execute)\s*[:：]/iu.test(workflow.text)) && workflow.steps.some(step => step.status === 'interrupted');
         if (hostInterrupted) card.append(el('p', 'board-error', '重試前請先確認工作目錄是否已有變更。'));
         if (workflow.status === 'failed') card.append(action(hostInterrupted ? '重試中斷的本機工序' : '重試未完成工序', async event => {
           const button = event.currentTarget;
