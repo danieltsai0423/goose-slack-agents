@@ -9,7 +9,7 @@ import { drawCharacter, drawChair, drawDesk, furnitureIso, props as propDrawers,
 // A 2.5D isometric office. The floor, back walls and rugs are drawn once per floor; desks, props,
 // partitions and people are depth-sorted every frame into a world-sized canvas, which the camera
 // then scales onto the visible canvas (drag to pan, wheel or pinch to zoom).
-const variants = { claude: 0, codex: 1, 'claude-research': 2, 'claude-review': 3, 'codex-build': 4, 'codex-test': 5 };
+export const variants = { claude: 0, codex: 1, 'claude-research': 2, 'claude-review': 3, 'codex-build': 4, 'codex-test': 5 };
 const teamOf = id => id.startsWith('claude') ? 'claude' : 'codex';
 const workingStates = new Set(['planning', 'working', 'running', 'busy', 'delegated', 'reviewing', 'queued']);
 const deskProps = ['cup', 'note', 'book', 'note', 'tools', 'cup'];

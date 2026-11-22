@@ -24,7 +24,7 @@ const staticFiles = new Map([
   ['/workspace-tools.js', ['workspace-tools.js', 'text/javascript']],
   ['/folder-picker.js', ['folder-picker.js', 'text/javascript']],
   ['/access-mode.js', ['access-mode.js', 'text/javascript']],
-  ['/subscription-usage.js', ['subscription-usage.js', 'text/javascript']], ['/style.css', ['style.css', 'text/css']],
+  ['/subscription-usage.js', ['subscription-usage.js', 'text/javascript']], ['/style.css', ['style.css', 'text/css']], ['/shop.css', ['shop.css', 'text/css']],
   ['/economy.js', ['economy.js', 'text/javascript']], ['/pixel-kit.js', ['pixel-kit.js', 'text/javascript']],
   ['/furniture.js', ['furniture.js', 'text/javascript']], ['/iso.js', ['iso.js', 'text/javascript']],
   ['/iso-layouts.js', ['iso-layouts.js', 'text/javascript']], ['/iso-world.js', ['iso-world.js', 'text/javascript']],

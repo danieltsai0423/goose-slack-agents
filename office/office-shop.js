@@ -3,7 +3,8 @@ import {
 } from './economy.js';
 import { painter } from './pixel-kit.js';
 import { drawFurniture, drawItem, drawPerk, drawWallArt, drawWallArtLive } from './furniture.js';
-import { paintFloorPreview } from './scene.js';
+import { drawCharacter } from './iso-props.js';
+import { paintFloorPreview, variants } from './scene.js';
 
 const money = value => '$' + Math.round(value || 0).toLocaleString('en-US');
 const slotNames = { f1: '左前 · 1', f2: '左前 · 2', f3: '左前 · 3', f4: '右前 · 1', f5: '右前 · 2', f6: '右前 · 3', w1: '左牆', w2: '右牆' };
@@ -11,6 +12,8 @@ const signed = value => (value > 0 ? '+' : '') + value;
 const effectText = entry => [
   entry.mood ? `心情 ${signed(entry.mood)}` : '', entry.energy ? `精力 ${signed(entry.energy)}` : ''
 ].filter(Boolean).join(' · ');
+const teamOf = id => id === 'codex' || id?.startsWith('codex-') ? 'codex' : 'claude';
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function sprite(width, height, scale, draw) {
   const canvas = document.createElement('canvas');
@@ -21,6 +24,9 @@ function sprite(width, height, scale, draw) {
   draw(painter(canvas));
   return canvas;
 }
+const paintRows = (rows, colors) => p => rows.forEach((row, y) => [...row].forEach((c, x) => {
+  if (colors[c]) p.box(x, y, 1, 1, colors[c]);
+}));
 export const itemIcon = (id, scale = 2) => sprite(12, 12, scale, p => drawItem(p, id, 0, 0));
 
 // Pixel icons for the two stats: a heart for 心情 and a lightning bolt for 精力.
@@ -31,9 +37,7 @@ const statArt = {
 const statNames = { mood: '心情', energy: '精力' };
 export function statIcon(kind, scale = 2) {
   const art = statArt[kind];
-  const icon = sprite(art.rows[0].length, art.rows.length, scale, p => art.rows.forEach((row, y) => [...row].forEach((c, x) => {
-    if (art.colors[c]) p.box(x, y, 1, 1, art.colors[c]);
-  })));
+  const icon = sprite(art.rows[0].length, art.rows.length, scale, paintRows(art.rows, art.colors));
   icon.classList.add('stat-icon', kind);
   icon.removeAttribute('aria-hidden');
   icon.setAttribute('role', 'img');
@@ -41,23 +45,74 @@ export function statIcon(kind, scale = 2) {
   icon.title = statNames[kind];
   return icon;
 }
-// Effect lines as nodes: [heart] +13 · [bolt] +10, with any extra text parts after them.
-function statLine(el, entry, { unit = '', extra = [] } = {}) {
-  const parts = [];
-  for (const kind of ['mood', 'energy']) {
-    if (!entry[kind]) continue;
-    const part = el('span', 'stat-part ' + kind);
-    part.append(statIcon(kind), el('span', '', signed(entry[kind]) + unit));
-    parts.push(part);
-  }
-  for (const text of extra) if (text) parts.push(el('span', 'stat-part', text));
-  return parts.flatMap((part, i) => i ? [document.createTextNode(' · '), part] : [part]);
+
+// 9×9 pixel badges for the shop tabs and the summary HUD.
+const badgeArt = {
+  items: { rows: ['..R...R..', '.RWR.RWR.', '..RRRRR..', 'KKKKRKKKK', 'KGGgRGGgK', 'KGGgRGGgK', 'KGGgRGGgK', 'KgggRgggK', 'KKKKKKKKK'],
+    colors: { K: '#26363a', G: '#8fd18a', g: '#5fa067', R: '#ff6f91', W: '#ffd0dc' } },
+  furniture: { rows: ['.KKKKKKK.', 'KBBBBBBBK', 'KBWBBBBBK', 'KBBBBBBBK', 'KKKKKKKKK', 'KBBBBBBBK', 'KbbbbbbbK', 'KKKKKKKKK', '.K.....K.'],
+    colors: { K: '#1f2c40', B: '#91b8ef', b: '#5e86c0', W: '#d6e6ff' } },
+  perks: { rows: ['.RR...BB.', '..RR.BB..', '...RBB...', '...KKK...', '..KYYYK..', '.KYWYYyK.', '.KYYYYyK.', '..KyyyK..', '...KKK...'],
+    colors: { K: '#6b4400', Y: '#ffd23f', y: '#e0a526', W: '#fff4c2', R: '#ff6f91', B: '#6fb6ff' } },
+  floors: { rows: ['..KKKKK..', '..KGGGK..', '.KKKKKKK.', '.KSWSWSK.', '.KSSSSSK.', '.KSWSWSK.', '.KSSSSSK.', '.KSWDWSK.', 'KKKKDKKKK'],
+    colors: { K: '#1d2a30', S: '#7e95a0', W: '#ffe08a', G: '#c6ed8c', D: '#a8743a' } },
+  ledger: { rows: ['..KKKKK..', '.KYYYYYK.', 'KYWYKYyyK', 'KYWKKKyyK', 'KYYYKYyyK', 'KYYKKKyyK', 'KYYYKYyyK', '.KyyyyyK.', '..KKKKK..'],
+    colors: { K: '#6b4400', Y: '#ffd23f', y: '#e0a526', W: '#fff4c2' } },
+  rate: { rows: ['....K....', '...KGK...', '..KGGGK..', '.KGGWGGK.', 'KKKGGGKKK', '...KGK...', '...KGK...', '...KGK...', '...KKK...'],
+    colors: { K: '#2b4a1c', G: '#9be26b', W: '#e8ffd0' } },
+  morale: { rows: ['...KKK...', '..KYYYK..', '.KYYYYYK.', 'KYKYYYKYK', 'KYYYYYYYK', 'KYKYYYKYK', '.KYKKKYK.', '..KYYYK..', '...KKK...'],
+    colors: { K: '#6b4400', Y: '#ffd23f' } },
+  clock: { rows: ['..KKKKK..', '.KWWWWWK.', 'KWWWKWWWK', 'KWWWKWWWK', 'KWWWKKKWK', 'KWWWWWWWK', 'KWWWWWWWK', '.KWWWWWK.', '..KKKKK..'],
+    colors: { K: '#26363a', W: '#d6f0ff' } },
+  lock: { rows: ['..KKKKK..', '.KK...KK.', '.K.....K.', 'KKKKKKKKK', 'KYYYYYYYK', 'KYYYKYYYK', 'KYYYKYYYK', 'KYYYYYYYK', 'KKKKKKKKK'],
+    colors: { K: '#1d2226', Y: '#c9a24a' } }
+};
+const badge = (name, scale = 2) => {
+  const art = badgeArt[name];
+  const icon = sprite(9, 9, scale, paintRows(art.rows, art.colors));
+  icon.classList.add('pixel-badge');
+  return icon;
+};
+
+// A 9×9 pixel face per emotion, tinted so it never reads as a team colour swatch.
+const faceTint = { elated: '#ff9cb7', happy: '#ffd23f', calm: '#9ed4a6', grumpy: '#f0a060', tired: '#a9bde0', sad: '#8f9fd0' };
+const faceRows = {
+  elated: ['KFKFFFKFK', 'KPFFFFFPK', 'KFKFFFKFK', 'KFFKKKFFK'],
+  happy: ['KFKFFFKFK', 'KFFFFFFFK', 'KFKFFFKFK', 'KFFKKKFFK'],
+  calm: ['KFKFFFKFK', 'KFFFFFFFK', 'KFFFFFFFK', 'KFFKKKFFK'],
+  grumpy: ['KFKFFFKFK', 'KFFFFFFFK', 'KFFKKKFFK', 'KFKFFFKFK'],
+  tired: ['KKKFFFKKK', 'KFFFFFFFK', 'KFFFFFFFK', 'KFFKKKFFK'],
+  sad: ['KFKFFFKFK', 'KTFFFFFFK', 'KFFKKKFFK', 'KFKFFFKFK']
+};
+export function moodFace(emotion, scale = 2) {
+  const rows = ['..KKKKK..', '.KFFFFFK.', 'KFFFFFFFK', ...(faceRows[emotion] || faceRows.calm), '.KFFFFFK.', '..KKKKK..'];
+  return sprite(9, 9, scale, paintRows(rows, { K: '#2a2422', F: faceTint[emotion] || faceTint.calm, P: '#ff6f91', T: '#5fb0ff' }));
 }
 const perkIcon = id => sprite(12, 12, 3, p => drawPerk(p, id, 0, 0));
-function furnitureIcon(entry) {
+function furnitureIcon(entry, scale = 2) {
   return entry.kind === 'wall'
-    ? sprite(24, 30, 2, p => { drawWallArt(p, entry.id, 12, 2); drawWallArtLive(p, entry.id, 12, 2, 1); })
-    : sprite(42, 26, 2, p => drawFurniture(p, entry.id, 21, 25));
+    ? sprite(24, 30, scale, p => { drawWallArt(p, entry.id, 12, 2); drawWallArtLive(p, entry.id, 12, 2, 1); })
+    : sprite(42, 26, scale, p => drawFurniture(p, entry.id, 21, 25));
+}
+// The same chibi the office draws, standing and facing the viewer.
+function portrait(id, emotion, scale = 2) {
+  return sprite(22, 32, scale, p => drawCharacter(p, variants[id] ?? 0, 11, 30, {
+    facing: 'sw', emotion, team: teamOf(id), lead: id === 'claude' || id === 'codex'
+  }));
+}
+
+// Rarity frames come from where an entry sits in its own price list, so every catalog gets the full range.
+const tiers = [['common', '普通'], ['rare', '精良'], ['epic', '稀有'], ['legendary', '傳說']];
+const tierMaps = new Map();
+function tierOf(list, entry) {
+  if (!tierMaps.has(list)) {
+    const sorted = list.toSorted((a, b) => a.price - b.price);
+    tierMaps.set(list, new Map(sorted.map((item, index) => {
+      const q = index / Math.max(1, sorted.length - 1);
+      return [item.id, tiers[q < 0.35 ? 0 : q < 0.65 ? 1 : q < 0.88 ? 2 : 3]];
+    })));
+  }
+  return tierMaps.get(list).get(entry.id);
 }
 
 export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, onOpen }) {
@@ -69,12 +124,25 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
   const rateLabel = document.getElementById('wallet-rate');
   const toast = document.getElementById('funds-toast');
   const officePreview = document.getElementById('shop-office-preview');
-  let economy = null, tab = 'items', target = '', busy = false, lastLedger = null, toastTimer, previewKey = '';
+  const plaque = document.getElementById('shop-floor-plaque');
+  let economy = null, tab = 'items', target = '', busy = false, lastLedger = null, toastTimer, noteTimer, previewKey = '';
   let furnitureFilter = 'all';
   const previews = new Map();
   const visible = () => !page.hidden;
 
-  function setNote(text, tone = '') { note.textContent = text || ''; note.dataset.tone = tone; note.hidden = !text; }
+  for (const node of tabs) {
+    if (!node.querySelector('.pixel-badge')) node.prepend(badge(node.dataset.shopTab));
+    node.setAttribute('role', 'tab');
+  }
+
+  function setNote(text, tone = '') {
+    note.textContent = text || ''; note.dataset.tone = tone; note.hidden = !text;
+    clearTimeout(noteTimer);
+    if (text && tone === 'ok') {
+      note.classList.remove('show'); void note.offsetWidth; note.classList.add('show');
+      noteTimer = setTimeout(() => { note.hidden = true; }, 6000);
+    }
+  }
   const nameOf = id => getStaff().find(person => person.id === id)?.name || id;
 
   function showEarnings(entries) {
@@ -86,6 +154,18 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     toast.classList.remove('show'); void toast.offsetWidth; toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { toast.hidden = true; }, 5200);
+  }
+
+  // A short pop on the card or tile that just changed, with the amount floating up from it.
+  function celebrate(key, text, tone = 'spend') {
+    const node = body.querySelector(`[data-key="${CSS.escape(key)}"]`);
+    if (!node) return;
+    node.classList.remove('just-bought'); void node.offsetWidth; node.classList.add('just-bought');
+    if (reducedMotion()) return;
+    const float = el('span', 'float-text ' + tone, text);
+    float.setAttribute('aria-hidden', 'true');
+    node.append(float);
+    setTimeout(() => float.remove(), 1300);
   }
 
   const holdings = value => value && JSON.stringify([value.funds, value.inventory, value.owned, value.perks, value.placed, value.floor, value.floorsOwned]);
@@ -131,6 +211,12 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     } catch { setNote('無法連線到辦公室服務。', 'error'); return null; }
     finally { busy = false; if (visible()) render(); }
   }
+  async function buy(kind, entry, message) {
+    const data = await act('buy', { kind, id: entry.id });
+    if (!data) return;
+    setNote(message, 'ok');
+    celebrate(kind + ':' + entry.id, '−' + money(entry.price));
+  }
 
   async function give(itemId, person) {
     const item = itemById[itemId];
@@ -142,59 +228,109 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     const line = (effect?.favorite ? '這是我最喜歡的！' : '') + item.lines[Math.floor(Math.random() * item.lines.length)];
     setNote(item.team ? `${item.name}開始了！全員${effectText(item)}` :
       `${nameOf(person)} 收到${item.name}${effect?.favorite ? '（最愛，效果 ×1.6）' : ''}：${effectText(effect)}`, 'ok');
+    const gain = effect ? [effect.mood ? '♥' + signed(effect.mood) : '', effect.energy ? '⚡' + signed(effect.energy) : ''].filter(Boolean).join(' ') : '';
+    for (const id of item.team ? targets : [person]) celebrate('staff:' + id, gain || '♥', 'gain');
     onReact(targets, itemId, lead, line);
   }
 
-  function passiveLine(entry, extra = []) {
-    const line = el('p', 'shop-effect');
-    line.append(...statLine(el, entry, { unit: '/時', extra: [
-      entry.decay ? `心情衰退 −${Math.round(entry.decay * 100)}%` : '', entry.income ? `收入 +${Math.round(entry.income * 100)}%` : '', ...extra
-    ] }));
-    return line;
-  }
-  function card(className) { return el('article', 'shop-card ' + (className || '')); }
-  function button(label, handler, { primary = false, disabled = false } = {}) {
-    const node = el('button', 'login-trigger' + (primary ? ' login-primary' : ''), label);
+  /* ---------- Building blocks ---------- */
+  function button(label, handler, { tone = '', disabled = false } = {}) {
+    const node = el('button', 'game-btn' + (tone ? ' ' + tone : ''), label);
     node.type = 'button'; node.disabled = disabled || busy;
     node.onclick = handler;
     return node;
   }
-  function cardHead(icon, name, price) {
-    const head = el('div', 'shop-card-head');
-    const title = el('div');
-    title.append(el('strong', '', name), el('span', 'shop-price', price));
-    head.append(icon, title);
+  function priceTag(price, { free = '', afford = true } = {}) {
+    const tag = el('span', 'price-tag' + (free ? ' done' : afford ? '' : ' short'));
+    if (free) { tag.textContent = free; return tag; }
+    tag.append(el('i', 'coin'), el('b', '', money(price)));
+    if (!afford) tag.title = `還差 ${money(price - economy.funds)}`;
+    return tag;
+  }
+  function sectionHead(title, sub = '') {
+    const head = el('h3', 'shop-section');
+    head.append(el('span', '', title));
+    if (sub) head.append(el('small', '', sub));
     return head;
+  }
+  function effectLine(entry, { unit = '', extra = [], prefix = '', mixed = false } = {}) {
+    const line = el('p', 'shop-effect' + (mixed ? ' mixed' : ''));
+    if (prefix) line.append(el('span', 'stat-part tag', prefix));
+    for (const kind of ['mood', 'energy']) {
+      if (!entry[kind]) continue;
+      const part = el('span', 'stat-part ' + kind + (entry[kind] < 0 ? ' down' : ''));
+      part.append(statIcon(kind), el('span', '', signed(entry[kind]) + unit));
+      line.append(part);
+    }
+    for (const text of extra) if (text) line.append(el('span', 'stat-part tag', text));
+    return line;
+  }
+  const passiveExtras = entry => [
+    entry.decay ? `衰退 −${Math.round(entry.decay * 100)}%` : '', entry.income ? `收入 +${Math.round(entry.income * 100)}%` : ''
+  ];
+  // One card shape for every catalog: framed art on top, then name, blurb, effects and the action row.
+  function shopCard({ key, list, entry, icon, art = '', state = '', corner = null, effect, foot }) {
+    const [tierKey, tierLabel] = tierOf(list, entry);
+    const node = el('article', `shop-card tier-${tierKey}${state ? ' ' + state : ''}`);
+    node.dataset.key = key;
+    const frame = el('div', 'card-art' + (art ? ' ' + art : ''));
+    frame.append(icon, el('span', 'tier-tag', tierLabel));
+    if (corner) frame.append(corner);
+    if (state === 'locked') {
+      const veil = el('span', 'lock-veil');
+      veil.append(badge('lock', 3), el('b', '', `${entry.floor}F 解鎖`));
+      frame.append(veil);
+    }
+    const text = el('div', 'card-text');
+    text.append(el('strong', 'card-name', entry.name), el('p', 'shop-desc', entry.desc), effect);
+    node.append(frame, text, foot);
+    return node;
   }
   function chips(options, value, onPick, label) {
     const group = el('div', 'shop-chips');
     group.setAttribute('role', 'group');
     group.setAttribute('aria-label', label);
-    for (const [key, text] of options) {
+    for (const [key, text, count] of options) {
       const chip = el('button', 'shop-chip' + (key === value ? ' on' : ''), text);
       chip.type = 'button';
       chip.setAttribute('aria-pressed', String(key === value));
+      if (count != null) chip.append(el('span', 'chip-count', String(count)));
       chip.onclick = () => onPick(key);
       group.append(chip);
     }
     return group;
   }
 
-  // Picks who receives an item: one tile per person with their mood at a glance.
+  /* ---------- 道具 ---------- */
+  // Picks who receives an item: a party roster with each member's portrait and mood at a glance.
+  function pickTarget(staff = getStaff()) {
+    if (!staff.some(person => person.id === target)) target = getSelected() || staff[0]?.id || '';
+  }
   function staffPicker() {
     const staff = getStaff();
-    if (!staff.some(person => person.id === target)) target = getSelected() || staff[0]?.id || '';
+    pickTarget(staff);
     const grid = el('div', 'staff-picker');
-    grid.setAttribute('role', 'group');
+    grid.setAttribute('role', 'radiogroup');
     grid.setAttribute('aria-label', '給予對象');
     for (const person of staff) {
       const status = economy.agents[person.id];
-      const tile = el('button', 'staff-tile' + (person.id === target ? ' on' : '') + ' ' + person.manager);
+      const team = person.manager || teamOf(person.id);
+      const tile = el('button', 'staff-tile ' + team + (person.id === target ? ' on' : ''));
       tile.type = 'button';
-      tile.setAttribute('aria-pressed', String(person.id === target));
+      tile.dataset.key = 'staff:' + person.id;
+      tile.setAttribute('role', 'radio');
+      tile.setAttribute('aria-checked', String(person.id === target));
+      const frame = el('span', 'staff-portrait');
+      frame.append(portrait(person.id, status?.emotion || 'calm'));
+      const info = el('span', 'staff-info');
       const head = el('span', 'staff-tile-head');
       head.append(el('strong', '', person.name), el('span', 'meta', person.role));
-      tile.append(head, moodMeters(person.id, true), el('span', 'staff-fav', '最愛：' + (itemById[favorites[person.id]]?.name || '—')));
+      const fav = el('span', 'staff-fav');
+      const favItem = itemById[favorites[person.id]];
+      if (favItem) fav.append(itemIcon(favItem.id, 1), el('span', '', favItem.name));
+      else fav.textContent = '—';
+      info.append(head, moodMeters(person.id, true), fav);
+      tile.append(frame, info);
       if (!status) tile.disabled = true;
       tile.onclick = () => { target = person.id; render(); };
       grid.append(tile);
@@ -203,59 +339,83 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
   }
 
   function renderItems() {
-    const grid = el('div', 'shop-grid');
+    pickTarget();
     const solo = items.filter(item => !item.team), team = items.filter(item => item.team);
     const itemCard = item => {
       const owned = economy.inventory[item.id] || 0;
-      const node = card(owned ? 'owned' : '');
-      const line = el('p', 'shop-effect' + (item.mood < 0 ? ' mixed' : ''));
-      if (item.team) line.append(el('span', 'stat-part', '全員'), ' ');
-      line.append(...statLine(el, item.team ? item : itemEffect(item, target), { extra: [favorites[target] === item.id && !item.team ? '最愛 ×1.6' : ''] }));
-      node.append(cardHead(itemIcon(item.id, 3), item.name, money(item.price)), el('p', 'shop-desc', item.desc), line);
-      const actions = el('div', 'shop-actions');
-      actions.append(el('span', 'meta', owned ? `持有 ${owned}` : '未持有'));
-      actions.append(button('購買', () => act('buy', { kind: 'item', id: item.id }).then(data => data && setNote(`買了${item.name}。`, 'ok')),
-        { disabled: economy.funds < item.price }));
-      if (owned) actions.append(button(item.team ? '舉辦' : `給 ${nameOf(target)}`, () => give(item.id, target), { primary: true }));
-      node.append(actions);
+      const favorite = !item.team && favorites[target] === item.id;
+      const afford = economy.funds >= item.price;
+      let corner = null;
+      if (owned) corner = el('span', 'stock-badge', '×' + owned);
+      const effect = effectLine(item.team ? item : itemEffect(item, target), {
+        prefix: item.team ? '全員' : '', extra: [favorite ? '★ 最愛 ×1.6' : ''], mixed: item.mood < 0
+      });
+      const foot = el('div', 'card-foot');
+      foot.append(priceTag(item.price, { afford }));
+      const actions = el('div', 'card-actions');
+      actions.append(button('購買', () => buy('item', item, `買了${item.name}，放進道具欄。`), { tone: owned ? 'ghost' : 'buy', disabled: !afford }));
+      if (owned) actions.append(button(item.team ? '舉辦' : `送給 ${nameOf(target)}`, () => give(item.id, target), { tone: 'use' }));
+      foot.append(actions);
+      const node = shopCard({ key: 'item:' + item.id, list: items, entry: item, icon: itemIcon(item.id, 4),
+        state: [owned ? 'owned' : '', favorite ? 'favorite' : ''].filter(Boolean).join(' '), corner, effect, foot });
+      if (favorite) node.querySelector('.card-art').append(el('span', 'fav-ribbon', '★ 最愛'));
       return node;
     };
+    const grid = el('div', 'shop-grid');
     grid.append(...solo.map(itemCard));
-    const teamGrid = el('div', 'shop-grid');
+    const teamGrid = el('div', 'shop-grid events');
     teamGrid.append(...team.map(itemCard));
-    return [el('h3', 'shop-section', '給予對象'), staffPicker(), el('h3', 'shop-section', '個人道具'), grid,
-      el('h3', 'shop-section', '全員活動'), teamGrid];
+    const stocked = items.reduce((sum, item) => sum + (economy.inventory[item.id] || 0), 0);
+    return [
+      sectionHead('給予對象', `送給 ${nameOf(target)} · 最愛道具效果 ×1.6`), staffPicker(),
+      sectionHead('個人道具', stocked ? `道具欄 ${stocked} 件` : '先買下來，再送給隊友'), grid,
+      sectionHead('全員活動', '一次影響整個團隊'), teamGrid
+    ];
   }
 
+  /* ---------- 家具 ---------- */
   function layoutSummary() {
-    const wrap = el('div', 'slot-summary');
-    for (const slot of slots) {
-      const entry = furnitureById[economy.placed[slot.id]];
-      const cell = el('span', 'slot-cell' + (entry ? ' filled' : ''));
-      cell.append(el('small', '', slotNames[slot.id]), el('b', '', entry?.name || '空位'));
-      wrap.append(cell);
+    const board = el('div', 'slot-board');
+    for (const [kind, label] of [['wall', '牆面'], ['floor', '地面']]) {
+      const row = el('div', 'slot-row ' + kind);
+      row.append(el('span', 'slot-row-label', label));
+      const cells = el('div', 'slot-cells');
+      for (const slot of slots.filter(slot => slot.kind === kind)) {
+        const entry = furnitureById[economy.placed[slot.id]];
+        const cell = el('span', 'slot-cell' + (entry ? ' filled' : ''));
+        const well = el('span', 'slot-well');
+        if (entry) well.append(furnitureIcon(entry, 1));
+        else well.append(el('span', 'slot-plus', '+'));
+        const caption = el('span', 'slot-caption');
+        caption.append(el('small', '', slotNames[slot.id]), el('b', '', entry?.name || '空位'));
+        cell.append(well, caption);
+        cells.append(cell);
+      }
+      row.append(cells);
+      board.append(row);
     }
-    return wrap;
+    return board;
   }
 
   function renderFurniture() {
     const unlocked = Math.max(...economy.floorsOwned);
+    const isOwned = entry => economy.owned.includes(entry.id);
+    const filters = {
+      all: () => true, floor: entry => entry.kind === 'floor', wall: entry => entry.kind === 'wall',
+      available: entry => !isOwned(entry) && entry.floor <= unlocked, owned: isOwned
+    };
+    const list = furniture.filter(filters[furnitureFilter]).toSorted((a, b) => a.floor - b.floor || a.price - b.price);
     const grid = el('div', 'shop-grid');
-    const matches = entry => furnitureFilter === 'all' || furnitureFilter === entry.kind ||
-      (furnitureFilter === 'owned' && economy.owned.includes(entry.id)) ||
-      (furnitureFilter === 'available' && !economy.owned.includes(entry.id) && entry.floor <= unlocked);
-    const list = furniture.filter(matches).toSorted((a, b) => a.floor - b.floor || a.price - b.price);
     for (const entry of list) {
-      const owned = economy.owned.includes(entry.id);
+      const owned = isOwned(entry);
       const locked = entry.floor > unlocked;
-      const node = card(locked ? 'locked' : owned ? 'owned' : '');
-      node.append(cardHead(furnitureIcon(entry), entry.name, owned ? '已擁有' : money(entry.price)), el('p', 'shop-desc', entry.desc),
-        passiveLine(entry, [entry.kind === 'wall' ? '牆面' : '地面', `${entry.floor}F`]));
-      const actions = el('div', 'shop-actions');
-      if (locked) actions.append(el('span', 'meta', `${entry.floor}F 以上解鎖`));
-      else if (!owned) actions.append(button('購買', () => act('buy', { kind: 'furniture', id: entry.id }).then(data => data && setNote(`${entry.name}已送達辦公室。`, 'ok')),
-        { primary: true, disabled: economy.funds < entry.price }));
-      else {
+      const foot = el('div', 'card-foot');
+      if (locked) foot.append(priceTag(entry.price, { afford: false }), el('span', 'meta', `${entry.floor}F 以上解鎖`));
+      else if (!owned) {
+        const afford = economy.funds >= entry.price;
+        foot.append(priceTag(entry.price, { afford }),
+          button('購買', () => buy('furniture', entry, `${entry.name}已送達辦公室。`), { tone: 'buy', disabled: !afford }));
+      } else {
         const current = Object.entries(economy.placed).find(([, id]) => id === entry.id)?.[0] || '';
         const select = el('select');
         select.setAttribute('aria-label', entry.name + '的擺放位置');
@@ -267,43 +427,51 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
           select.append(option);
         }
         select.onchange = () => act('place', { furniture: entry.id, slot: select.value || null });
-        const label = el('label', 'shop-slot', current ? '擺在 ' : '放到 ');
+        const label = el('label', 'shop-slot' + (current ? ' placed' : ''), current ? '擺在' : '放到');
         label.append(select);
-        actions.append(label);
+        foot.append(priceTag(0, { free: current ? '使用中' : '倉庫中' }), label);
       }
-      node.append(actions);
-      grid.append(node);
+      const corner = el('span', 'kind-badge', `${entry.kind === 'wall' ? '牆面' : '地面'} · ${entry.floor}F`);
+      grid.append(shopCard({ key: 'furniture:' + entry.id, list: furniture, entry, icon: furnitureIcon(entry, entry.kind === 'wall' ? 3 : 2),
+        art: entry.kind, state: locked ? 'locked' : owned ? 'owned' : '', corner,
+        effect: effectLine(entry, { unit: '/時', extra: passiveExtras(entry) }), foot }));
     }
-    if (!list.length) grid.append(el('p', 'meta', '這個分類目前沒有家具。'));
+    if (!list.length) grid.append(el('p', 'shop-empty', '這個分類目前沒有家具。'));
+    const count = key => furniture.filter(filters[key]).length;
     return [
-      el('p', 'meta shop-intro', '家具擺出來才會生效，會持續影響全員的心情與精力，搬家時一起帶走。地面 6 格、牆面 2 格，閒暇時大家會去使用它們。'),
+      sectionHead('目前擺設', '擺出來才會生效 · 地面 6 格、牆面 2 格，搬家時一起帶走'),
       layoutSummary(),
-      chips([['all', '全部'], ['floor', '地面'], ['wall', '牆面'], ['available', '可購買'], ['owned', '已擁有']], furnitureFilter,
-        key => { furnitureFilter = key; render(); }, '家具篩選'),
+      sectionHead('家具目錄', '持續影響全員的心情與精力，閒暇時大家會去使用'),
+      chips([['all', '全部', count('all')], ['floor', '地面', count('floor')], ['wall', '牆面', count('wall')],
+        ['available', '可購買', count('available')], ['owned', '已擁有', count('owned')]], furnitureFilter,
+      key => { furnitureFilter = key; render(); }, '家具篩選'),
       grid
     ];
   }
 
+  /* ---------- 福利 ---------- */
   function renderPerks() {
     const unlocked = Math.max(...economy.floorsOwned);
     const grid = el('div', 'shop-grid');
     for (const perk of perks) {
       const owned = economy.perks?.includes(perk.id);
       const locked = perk.floor > unlocked;
-      const node = card(locked ? 'locked' : owned ? 'owned' : '');
-      node.append(cardHead(perkIcon(perk.id), perk.name, owned ? '已實施' : money(perk.price)), el('p', 'shop-desc', perk.desc),
-        passiveLine(perk));
-      const actions = el('div', 'shop-actions');
-      if (owned) actions.append(el('span', 'floor-here', '實施中'));
-      else if (locked) actions.append(el('span', 'meta', `${perk.floor}F 以上解鎖`));
-      else actions.append(button('實施', () => act('buy', { kind: 'perk', id: perk.id }).then(data => data && setNote(`${perk.name}開始實施，大家都很高興。`, 'ok')),
-        { primary: true, disabled: economy.funds < perk.price }));
-      node.append(actions);
-      grid.append(node);
+      const foot = el('div', 'card-foot');
+      if (owned) foot.append(priceTag(0, { free: '✓ 實施中' }));
+      else if (locked) foot.append(priceTag(perk.price, { afford: false }), el('span', 'meta', `${perk.floor}F 以上解鎖`));
+      else {
+        const afford = economy.funds >= perk.price;
+        foot.append(priceTag(perk.price, { afford }),
+          button('實施', () => buy('perk', perk, `${perk.name}開始實施，大家都很高興。`), { tone: 'buy', disabled: !afford }));
+      }
+      grid.append(shopCard({ key: 'perk:' + perk.id, list: perks, entry: perk, icon: perkIcon(perk.id), art: 'perk',
+        state: locked ? 'locked' : owned ? 'owned' : '', effect: effectLine(perk, { unit: '/時', extra: passiveExtras(perk) }), foot }));
     }
-    return [el('p', 'meta shop-intro', '福利制度只需買一次，不佔擺放位置，搬到哪一層都持續有效。'), grid];
+    const active = perks.filter(perk => economy.perks?.includes(perk.id)).length;
+    return [sectionHead('公司福利', `已實施 ${active} / ${perks.length} · 買一次永久有效，不佔擺放位置`), grid];
   }
 
+  /* ---------- 樓層 ---------- */
   function floorPreview(floor) {
     const key = floor.id + JSON.stringify(economy.placed);
     if (!previews.has(key)) {
@@ -323,34 +491,57 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     for (const floor of [...floors].reverse()) {
       const owned = economy.floorsOwned.includes(floor.id);
       const current = economy.floor === floor.id;
-      const node = card('floor-card-option' + (current ? ' current' : '') + (!owned && floor.id > top + 1 ? ' locked' : ''));
+      const next = !owned && floor.id === top + 1;
+      const state = current ? 'current' : owned ? 'owned' : next ? 'next' : 'locked';
+      const node = el('article', 'floor-card-option ' + state);
+      node.dataset.key = 'floor:' + floor.id;
+      const stop = el('div', 'floor-stop');
+      stop.append(el('b', '', floor.id + 'F'), el('span', '', { current: '所在', owned: '已解鎖', next: '可承租', locked: '未開放' }[state]));
+      const view = el('div', 'floor-view');
+      view.append(floorPreview(floor));
+      if (current) view.append(el('span', 'here-pin', '▼ 目前樓層'));
+      if (state === 'locked') { const veil = el('span', 'lock-veil'); veil.append(badge('lock', 3)); view.append(veil); }
       const info = el('div', 'floor-info');
       const heading = el('div', 'floor-title');
-      heading.append(el('span', 'floor-label', floor.id + 'F'), el('strong', '', floor.name), el('em', '', floor.style));
-      info.append(heading, el('p', 'shop-desc', floor.blurb), el('p', 'shop-effect', `收入 ×${floor.income} · ${floor.perk}`));
-      const actions = el('div', 'shop-actions');
-      if (current) actions.append(el('span', 'floor-here', '目前所在樓層'));
-      else if (owned) actions.append(button('搬到這層', () => act('floor', { floor: floor.id }).then(data => data && setNote(`搬到 ${floor.id}F ${floor.name}。`, 'ok')), { primary: true }));
-      else if (floor.id === top + 1) actions.append(el('span', 'shop-price', money(floor.price)),
-        button('承租並搬入', () => act('floor', { floor: floor.id }).then(data => data && setNote(`歡迎來到 ${floor.id}F ${floor.name}！`, 'ok')),
-          { primary: true, disabled: economy.funds < floor.price }));
-      else actions.append(el('span', 'meta', `先解鎖 ${floor.id - 1}F · ${money(floor.price)}`));
+      heading.append(el('strong', '', floor.name), el('em', '', floor.style));
+      const perksLine = el('p', 'shop-effect');
+      perksLine.append(el('span', 'stat-part tag income', `收入 ×${floor.income}`), el('span', 'stat-part tag', floor.perk));
+      info.append(heading, el('p', 'shop-desc', floor.blurb), perksLine);
+      const actions = el('div', 'card-foot');
+      if (current) actions.append(priceTag(0, { free: '✓ 進駐中' }));
+      else if (owned) actions.append(priceTag(0, { free: '已承租' }),
+        button('搬到這層', () => act('floor', { floor: floor.id }).then(data => data && setNote(`搬到 ${floor.id}F ${floor.name}。`, 'ok')), { tone: 'use' }));
+      else if (next) {
+        const afford = economy.funds >= floor.price;
+        actions.append(priceTag(floor.price, { afford }),
+          button('承租並搬入', () => act('floor', { floor: floor.id }).then(data => data && setNote(`歡迎來到 ${floor.id}F ${floor.name}！`, 'ok')),
+            { tone: 'buy', disabled: !afford }));
+      } else actions.append(priceTag(floor.price, { afford: false }), el('span', 'meta', `先解鎖 ${floor.id - 1}F`));
       info.append(actions);
-      node.append(floorPreview(floor), info);
+      node.append(stop, view, info);
       list.append(node);
     }
-    return [list];
+    return [sectionHead('大樓樓層', `已解鎖 ${economy.floorsOwned.length} / ${floors.length} 層 · 越高收入倍率越高`), list];
   }
 
+  /* ---------- 收支 ---------- */
   function renderLedger() {
-    const intro = el('div', 'ledger-intro');
-    intro.append(
-      el('p', '', `每用掉 1% 訂閱額度（Claude 看 5 小時額度，Codex 看最短的額度視窗）可得 ${money(FUNDS_PER_PERCENT)}，再乘上樓層、家具、福利與士氣倍率。`),
-      el('p', 'meta', `目前每 1% = ${money(FUNDS_PER_PERCENT * economy.income)} · 樓層、家具與福利 ×${economy.rates.income} · 士氣 ×${economy.morale}（心情和精力越好，士氣越高，介於 ×0.8 到 ×1.25）。`),
-      el('p', 'meta', '工作也會累：每用掉 1% 額度，該組成員精力 −1.2、心情 −0.4。辦公室開著時每 5 分鐘同步一次用量。')
-    );
     const totals = el('div', 'ledger-totals');
-    totals.append(el('span', '', '累計收入 ' + money(economy.earned)), el('span', '', '累計支出 ' + money(economy.spent)));
+    const total = (label, value, tone) => {
+      const tile = el('div', 'ledger-total ' + tone);
+      tile.append(el('small', '', label), el('b', '', value));
+      return tile;
+    };
+    totals.append(total('累計收入', '+' + money(economy.earned), 'in'), total('累計支出', '−' + money(economy.spent), 'out'),
+      total('每 1% 額度', money(FUNDS_PER_PERCENT * economy.income), 'rate'));
+    const rules = el('details', 'ledger-rules');
+    rules.append(el('summary', '', '資金怎麼來？'),
+      el('p', '', `每用掉 1% 訂閱額度（Claude 看 5 小時額度，Codex 看最短的額度視窗）可得 ${money(FUNDS_PER_PERCENT)}，再乘上樓層、家具、福利與士氣倍率。`),
+      el('p', 'meta', `目前樓層、家具與福利 ×${economy.rates.income} · 士氣 ×${economy.morale}（心情和精力越好，士氣越高，介於 ×0.8 到 ×1.25）。`),
+      el('p', 'meta', '工作也會累：每用掉 1% 額度，該組成員精力 −1.2、心情 −0.4。辦公室開著時每 5 分鐘同步一次用量。'));
+    const toolbar = el('div', 'ledger-toolbar');
+    toolbar.append(sectionHead('收支明細', `${economy.ledger.length} 筆`),
+      button('立即同步用量', async () => { setNote('正在讀取訂閱用量…'); await load(true); setNote('已同步。', 'ok'); }, { tone: 'ghost' }));
     const list = el('ol', 'ledger-list');
     for (const entry of economy.ledger) {
       const row = el('li', entry.amount >= 0 ? 'in' : 'out');
@@ -358,41 +549,47 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
         el('span', '', entry.note), el('b', '', (entry.amount >= 0 ? '+' : '−') + money(Math.abs(entry.amount))));
       list.append(row);
     }
-    const sync = button('立即同步用量', async () => { setNote('正在讀取訂閱用量…'); await load(true); setNote('已同步。', 'ok'); });
-    return [intro, totals, sync, list];
+    if (!economy.ledger.length) list.append(el('li', 'empty', '還沒有收支紀錄。'));
+    return [totals, rules, toolbar, list];
   }
 
+  /* ---------- Summary HUD ---------- */
   function renderSummary() {
     const floor = floorById[economy.floor];
     const key = economy.floor + JSON.stringify(economy.placed);
     if (key !== previewKey) { previewKey = key; paintFloorPreview(officePreview, economy.floor, economy.placed); }
     officePreview.setAttribute('aria-label', `目前的辦公室：${economy.floor}F ${floor?.name || ''}`);
+    plaque.replaceChildren(el('b', '', economy.floor + 'F'), el('span', '', floor?.name || ''));
     const r = economy.rates;
+    const unhappy = Object.values(economy.agents).filter(a => emotions[a.emotion].tone === 'bad').length;
     const stats = [
-      ['辦公資金', money(economy.funds), `累計收入 ${money(economy.earned)}`],
-      ['每 1% 額度', money(FUNDS_PER_PERCENT * economy.income), `總倍率 ×${economy.income.toFixed(2)}`],
-      ['團隊士氣', '×' + economy.morale.toFixed(2), Object.values(economy.agents).filter(a => emotions[a.emotion].tone === 'bad').length + ' 人狀態不佳'],
-      [`${economy.floor}F ${floor?.name || ''} · 每小時`, statLine(el, { mood: r.mood }, { unit: '/時' }),
-        [...statLine(el, { energy: r.energy }, { unit: '/時' }), r.decay ? ` · 衰退 −${Math.round(r.decay * 100)}%` : '']]
+      ['ledger', '辦公資金', money(economy.funds), `累計收入 ${money(economy.earned)}`, 'funds'],
+      ['rate', '每 1% 額度', money(FUNDS_PER_PERCENT * economy.income), `總倍率 ×${economy.income.toFixed(2)}`, ''],
+      ['morale', '團隊士氣', '×' + economy.morale.toFixed(2), unhappy ? `${unhappy} 人狀態不佳` : '大家狀態不錯', unhappy ? 'warn' : ''],
+      ['clock', '每小時回復', r.mood || r.energy ? [...effectLine({ mood: r.mood, energy: r.energy }).childNodes] : '—',
+        r.decay ? `心情衰退 −${Math.round(r.decay * 100)}%` : '樓層、家具與福利加總', 'hourly']
     ];
-    document.getElementById('shop-stats').replaceChildren(...stats.map(([label, value, hint]) => {
-      const tile = el('div', 'shop-stat');
+    document.getElementById('shop-stats').replaceChildren(...stats.map(([icon, label, value, hint, tone]) => {
+      const tile = el('div', 'shop-stat' + (tone ? ' ' + tone : ''));
       const big = el('b'), small = el('span', 'meta');
-      big.append(...[value].flat()); small.append(...[hint].flat());
-      tile.append(el('small', '', label), big, small);
+      big.append(...[value].flat()); small.append(hint);
+      const head = el('small');
+      head.append(badge(icon, 2), label);
+      tile.append(head, big, small);
       return tile;
     }));
   }
 
   function render() {
-    if (!economy) { body.replaceChildren(el('p', 'meta', '正在讀取辦公室資金…')); return; }
+    if (!economy) { body.replaceChildren(el('p', 'shop-empty', '正在讀取辦公室資金…')); return; }
     renderSummary();
     for (const node of tabs) {
       const on = node.dataset.shopTab === tab;
-      node.classList.toggle('on', on); node.setAttribute('aria-pressed', String(on));
+      node.classList.toggle('on', on); node.setAttribute('aria-selected', String(on));
     }
     const views = { items: renderItems, furniture: renderFurniture, perks: renderPerks, floors: renderFloors, ledger: renderLedger };
     const scroll = window.scrollY;
+    body.dataset.tab = tab;
     body.replaceChildren(...views[tab]());
     window.scrollTo({ top: scroll });
   }
@@ -441,8 +638,9 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
       if (!economy) return wrap;
       const owned = items.filter(item => economy.inventory[item.id] && !item.team);
       if (!owned.length) {
-        const shop = button('去商店買點東西', () => open('items'));
-        shop.classList.add('small-action');
+        const shop = el('button', 'login-trigger small-action', '去商店買點東西');
+        shop.type = 'button';
+        shop.onclick = () => open('items');
         wrap.append(shop);
         return wrap;
       }

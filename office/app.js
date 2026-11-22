@@ -4,7 +4,7 @@ import { mountWorkspaceTools } from './workspace-tools.js';
 import { mountSubscriptionUsage } from './subscription-usage.js';
 import { mountFolderPicker } from './folder-picker.js';
 import { mountAccessMode } from './access-mode.js';
-import { mountOfficeShop } from './office-shop.js';
+import { moodFace, mountOfficeShop } from './office-shop.js';
 import { emotions } from './economy.js';
 const {
   attachmentFileBytes, attachmentImageBytes, attachmentLimit, attachmentTotalBytes, attachmentType, attachmentTypes = {}
@@ -313,7 +313,8 @@ function renderLifeToggle() {
 }
 function moodNode(status) {
   const emotion=status&&emotions[status.emotion];
-  const node=el('i','mood-dot'+(emotion?' '+status.emotion:''));
+  const node=el('span','mood-face'+(emotion?' '+emotion.tone:''));
+  if(emotion){node.append(moodFace(status.emotion),el('span','mood-label',emotion.label));}
   if(emotion){node.title=emotion.label+' · 心情 '+Math.round(status.mood)+' · 精力 '+Math.round(status.energy);node.setAttribute('aria-label',node.title);node.setAttribute('role','img');}
   else node.hidden=true;
   return node;

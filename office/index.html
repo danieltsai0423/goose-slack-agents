@@ -7,6 +7,7 @@
   <meta name="description" content="Goose Office 像素數位辦公室，向 Claude 與 Codex 主管交辦任務，追蹤代理團隊的進度與回覆。">
   <title>數位辦公室 · Goose Office</title>
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./shop.css">
 </head>
 <body>
   <a class="skip" href="#workspace">跳至工作區</a>
@@ -87,10 +88,10 @@
       </section>
       <section class="shop-page" id="shop-view" hidden aria-label="辦公室商店">
         <div class="panel shop-summary">
-          <canvas id="shop-office-preview" class="shop-office-preview" role="img" aria-label="目前的辦公室"></canvas>
+          <div class="shop-window"><canvas id="shop-office-preview" class="shop-office-preview" role="img" aria-label="目前的辦公室"></canvas><span class="floor-plaque" id="shop-floor-plaque"></span></div>
           <div class="shop-stats" id="shop-stats"></div>
         </div>
-        <div class="history-tabs shop-tabs" role="group" aria-label="商店分類"><button type="button" data-shop-tab="items" class="on" aria-pressed="true">道具</button><button type="button" data-shop-tab="furniture" aria-pressed="false">家具</button><button type="button" data-shop-tab="perks" aria-pressed="false">福利</button><button type="button" data-shop-tab="floors" aria-pressed="false">樓層</button><button type="button" data-shop-tab="ledger" aria-pressed="false">收支</button></div>
+        <div class="shop-tabs" role="tablist" aria-label="商店分類"><button type="button" data-shop-tab="items" class="on" aria-selected="true">道具</button><button type="button" data-shop-tab="furniture" aria-selected="false">家具</button><button type="button" data-shop-tab="perks" aria-selected="false">福利</button><button type="button" data-shop-tab="floors" aria-selected="false">樓層</button><button type="button" data-shop-tab="ledger" aria-selected="false">收支</button></div>
         <p class="shop-note" id="shop-note" role="status" hidden></p>
         <div class="shop-body" id="shop-body"></div>
       </section>
