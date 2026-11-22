@@ -11,6 +11,16 @@
 
 ## 本機設定
 
+### 數位辦公室
+
+從本專案目錄執行 `npm run office`，在瀏覽器開啟 [Goose Office](http://127.0.0.1:4178/)。服務只監聽本機，使用現有 Goose 的 Claude ACP 與 ChatGPT Codex 訂閱登入。像素辦公室由 Canvas 在瀏覽器繪製，可以在只有 CPU 的電腦使用。每次實際規劃、委派及審閱都會使用所選主管的訂閱額度。
+
+在交辦台選 Claude、Codex 或雙主管，送出任務後可在同一討論串追問。Claude 帶研究員 Mira 和審閱員 Theo，Codex 帶工程師 Finn 和測試員 Nova。子代理是獨立的 Goose 回合，沿用該組主管的訂閱。主管可親自回覆，或選擇員工、分派事項並審閱成果。「執行：」開頭的網頁交辦可使用本機工具，兩位主管在網頁上的主機工作依序執行。
+
+對話支援 Markdown 粗體、清單、表格、連結與程式碼。任務執行時可展開工作紀錄查看各回合、Goose 回傳的工具事件和耗時；完成後紀錄仍可查看。已授權的本機任務可將產出放進該任務的 `.data/office-files` 子資料夾，用 `[成果檔名](office-file:成果檔名)` 回傳下載連結。常用圖片、影片與音訊格式也會在對話裡提供預覽。
+
+任務與對話存於 `.data/office.sqlite`。任務紀錄的 Slack 頁籤會讀取現有橋接器已存到本機的近期討論串。網頁交辦及回覆保存在辦公室；要繼續從 Slack 收訊，另開終端執行原有的 `npm start`。可用 `OFFICE_PORT` 更改網頁服務埠。若主管顯示待登入，Claude 使用 `claude auth login`，Codex 使用 `npm run configure -- codex`。登入資訊約每兩分鐘重新檢查一次。
+
 需要 Node.js 24 以上、Goose CLI、Claude Code CLI。專案以 Goose 1.60.2 及 `npm ci` 安裝的 ACP adapter 為基準。Windows 可以把官方 Goose ZIP 解壓到 `.tools/goose`，或把 `goose.exe` 加入 `PATH`。也可在 `.env` 用 `GOOSE_BIN` 指定完整路徑。 [Goose 官方發行版](https://github.com/aaif-goose/goose/releases/tag/v1.60.2)
 
 ```powershell
@@ -22,6 +32,8 @@ npm run configure -- codex
 在 Goose 選擇 **Configure Providers → ChatGPT Codex**，用自己的 ChatGPT Plus 在瀏覽器登入。原版 Codex CLI 的登入不會填入這個 Goose profile。Claude 端使用已在原版 Claude Code 登入的 Claude 訂閱。若回報登入到期，執行 `claude auth login` 重新登入。
 
 可以在 `.env` 以 `GOOSE_CODEX_MODEL` 或 `GOOSE_CLAUDE_MODEL` 指定完整模型 ID。`GOOSE_CLAUDE_EFFORT` 會把指定的推理強度傳給 Claude Code，留空時使用 Claude Code 的設定。編輯 `.env` 後重新啟動橋接器即可套用設定。 [Claude Code 模型設定](https://code.claude.com/docs/en/model-config)
+
+「執行：」預設從本專案的根目錄開始。用 `GOOSE_WORK_DIR` 指定其他起始目錄時，可以填絕對路徑或相對本專案的路徑。檔案與命令的實際存取範圍由啟動橋接器的系統帳號權限決定。
 
 以下可在設定 Slack 前執行，每個 smoke test 各跑一次模型請求：
 

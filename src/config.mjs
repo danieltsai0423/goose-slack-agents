@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const projectDir = fileURLToPath(new URL('../', import.meta.url));
+export const executionDir = resolve(projectDir, process.env.GOOSE_WORK_DIR || '.');
 
 const bundledGoose = resolve(projectDir, '.tools/goose/goose-package/goose.exe');
 const stateDir = resolve(projectDir, process.env.STATE_DIR || '.data');

@@ -167,4 +167,7 @@ test('Goose decodes only the final assistant text and validates handoffs', () =>
     reply: '方案', nextAgent: null
   });
   assert.deepEqual(readGooseReply(output('plain text'), 'claude', false), { reply: '', nextAgent: null });
+  assert.deepEqual(readGooseReply(output('{"status":"completed"}'), 'claude', true), {
+    reply: '{"status":"completed"}', nextAgent: null
+  });
 });

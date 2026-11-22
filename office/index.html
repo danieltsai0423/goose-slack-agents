@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11191e">
+  <meta name="description" content="Goose Office 像素數位辦公室，向 Claude 與 Codex 主管交辦任務，追蹤代理團隊的進度與回覆。">
+  <title>數位辦公室 · Goose Office</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <a class="skip" href="#workspace">跳至工作區</a>
+  <header class="topbar">
+    <div class="top-inner">
+      <button class="brand" id="brand" aria-label="Goose Office 辦公室首頁"><span class="brand-mark"><canvas id="brand-goose" width="16" height="16" aria-hidden="true"></canvas></span><span>Goose <b>Office</b></span></button>
+      <nav class="views" aria-label="工作區導覽">
+        <button class="nav-action selected" id="floor-nav" aria-current="page"><i data-icon="floor"></i>辦公室</button>
+        <button class="nav-action" id="history-nav"><i data-icon="history"></i>任務紀錄<span id="nav-count"></span></button>
+      </nav>
+      <div class="topbar-end">
+        <div class="head-stats" role="group" aria-label="辦公室狀態"><span><i class="light"></i>執行中 <b id="active-count">—</b></span><span><i class="light queue"></i>排隊中 <b id="queue-count">—</b></span></div>
+        <button class="icon-button theme-toggle" type="button" id="theme-toggle" aria-label="亮色模式" aria-pressed="false" title="切換至亮色模式"><i data-icon="sun"></i></button>
+        <details class="service" id="service"><summary><span class="lamp"></span><span id="service-label">連線中</span><i data-icon="chev"></i></summary><div class="service-pop"><strong id="backend-name">本機工作區</strong><p id="backend-detail">正在取得服務狀態。</p></div></details>
+      </div>
+    </div>
+  </header>
+  <main class="workspace" id="workspace">
+    <header class="page-head" id="history-page-head" hidden>
+      <div><h1>任務紀錄</h1><p>查看主管的分工、任務進度與完整對話。</p></div>
+    </header>
+    <div class="layout">
+      <div class="work-column" id="floor-view">
+        <section class="panel floor-card" aria-labelledby="floor-heading">
+          <div class="floor-head"><div class="panel-title"><span class="section-icon"><i data-icon="floor"></i></span><h2 id="floor-heading">辦公區</h2><span class="floor-label">1F</span></div><button type="button" class="life-toggle" id="office-life-toggle" aria-pressed="true"><span class="light"></span>辦公室日常</button></div>
+          <div class="canvas-wrap">
+            <canvas id="office-canvas" width="512" height="256" role="img" aria-label="Claude 與 Codex 的像素辦公室平面圖。也可在下方團隊成員區選取座位。"></canvas>
+            <div class="office-dialogue" id="office-dialogue" hidden>
+              <div class="dialogue-head"><strong id="dialogue-speaker"></strong><button type="button" id="dialogue-thread" hidden>任務回顧</button></div>
+              <p id="dialogue-text"></p>
+            </div>
+          </div>
+          <div class="floor-foot"><span><i data-icon="pointer"></i><span id="selection-hint">點選角色查看成員</span></span><span class="map-key"><i class="swatch claude"></i>Claude <i class="swatch codex"></i>Codex</span></div>
+        </section>
+        <section class="panel member-profile" id="member-profile" aria-labelledby="profile-name" hidden>
+          <header><h2 id="profile-name"></h2><span id="profile-trait"></span></header>
+          <p id="profile-bio"></p>
+          <p id="profile-routine" class="meta"></p>
+        </section>
+        <section class="team-section" aria-labelledby="team-heading"><div class="list-heading"><h2 id="team-heading">團隊成員</h2><span id="team-count" class="meta"></span></div><div class="teams" id="teams"></div></section>
+      </div>
+      <section class="panel history" id="history-view" hidden aria-labelledby="history-heading">
+        <div class="history-head"><div class="panel-title"><span class="section-icon"><i data-icon="history"></i></span><h2 id="history-heading">所有交辦</h2></div><button class="small-action" id="history-new"><i data-icon="plus"></i>新增交辦</button></div>
+        <div class="history-tabs" role="group" aria-label="任務來源"><button data-source="office" class="on" aria-pressed="true">網頁交辦</button><button data-source="slack" aria-pressed="false">Slack 紀錄</button></div>
+        <div class="hist-filters"><label class="search"><i data-icon="search"></i><input id="search" type="search" placeholder="搜尋任務內容" aria-label="搜尋任務內容"></label><select id="hist-filter" aria-label="篩選任務狀態"><option value="all">所有狀態</option><option value="active">進行中</option><option value="done">已完成</option><option value="failed">執行失敗</option></select></div>
+        <div id="threads"></div>
+      </section>
+      <section class="panel dispatch" aria-labelledby="chat-heading" id="dispatch">
+        <header class="chat-head"><div class="panel-title"><span class="section-icon chat-icon"><i data-icon="chat"></i></span><h2 id="chat-heading">任務交辦台</h2></div><button id="chat-new" class="icon-button" aria-label="開啟新的交辦" title="開啟新的交辦"><i data-icon="compose"></i></button></header>
+        <div class="recipients">
+          <div class="target-switch" role="group" aria-label="選擇收件主管" aria-describedby="target-status">
+            <button data-target="claude"><span class="id-dot clay"></span>Claude</button>
+            <button data-target="codex"><span class="id-dot blue"></span>Codex</button>
+            <button data-target="both" class="on" aria-pressed="true"><i data-icon="people"></i>雙主管</button>
+          </div>
+          <p id="target-status" role="status" hidden></p>
+        </div>
+        <div class="chat-body" id="chat-body" role="log" aria-label="任務對話" aria-live="polite" aria-relevant="additions text">
+          <div class="empty-chat"><div class="chat-illustration" aria-hidden="true"><div class="pixel-bubble back"></div><div class="pixel-bubble front"><b></b><b></b><b></b></div></div><h3>開啟一個交辦</h3><p>寫下工作目標，主管會決定親自處理<br>或分派給團隊成員。</p></div>
+        </div>
+        <div class="compose-wrap"><div id="model-settings" class="model-settings" role="group" aria-label="模型與推理強度" hidden></div>
+          <form id="composer"><label class="sr-only" for="message">任務與訊息</label><textarea id="message" rows="2" placeholder="交辦給兩位主管…" required maxlength="8000"></textarea><div class="composer-actions"><span><kbd>Enter</kbd> 送出</span><button id="send" type="submit" disabled><i data-icon="send"></i><span>送出</span></button></div></form>
+          <details id="execution-help"><summary><i data-icon="info"></i>本機執行權限</summary><p>需要主管操作工作目錄時，請以「執行：」開頭並寫明操作內容。</p></details>
+          <p id="form-note" role="status" hidden></p>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script defer src="./markdown-it.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

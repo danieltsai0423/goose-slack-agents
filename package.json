@@ -3,8 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
+    "office": "node --env-file-if-exists=.env src/office-server.mjs",
     "start": "node --env-file-if-exists=.env src/main.mjs",
     "configure": "node --env-file-if-exists=.env src/setup.mjs configure",
     "smoke": "node --env-file-if-exists=.env src/setup.mjs smoke",
@@ -14,6 +17,7 @@
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "0.109.0",
     "@slack/socket-mode": "3.2.0",
-    "@slack/web-api": "8.5.0"
+    "@slack/web-api": "8.5.0",
+    "markdown-it": "14.2.0"
   }
 }
