@@ -1,5 +1,9 @@
 import { createOfficeScene } from './scene.js';
 import { personalities, summarizeBrief } from './life.js';
+import { mountWorkspaceTools } from './workspace-tools.js';
+const {
+  attachmentFileBytes, attachmentImageBytes, attachmentLimit, attachmentTotalBytes, attachmentType, attachmentTypes = {}
+} = await import('./attachment-types.js').catch(() => ({}));
 
 const $ = id => document.getElementById(id);
 const icons = {
@@ -13,6 +17,10 @@ const icons = {
   pointer: '<path d="m4 3 5 16 3-6 6-3z"/>',
   search: '<circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6 M12 7h.1"/>',
+  login: '<path d="M13 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5M4 12h11m-4-4 4 4-4 4"/>',
+  close: '<path d="m6 6 12 12M18 6 6 18"/>',
+  file: '<path d="M6 3h8l4 4v14H6z M14 3v5h4 M9 12h6 M9 16h6"/>',
+  refresh: '<path d="M20 10a8 8 0 1 0-2 8m2-13v5h-5"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2 M12 20v2 M2 12h2 M20 12h2 M5 5l1.5 1.5 M17.5 17.5 19 19 M5 19l1.5-1.5 M17.5 6.5 19 5"/>',
   moon: '<path d="M21 13a9 9 0 1 1-10-10 7 7 0 0 0 10 10Z"/>'
 };
@@ -47,10 +55,11 @@ const identities = [
   {id:'codex-build',manager:'codex',name:'Finn',role:'工程師',kind:'worker'},
   {id:'codex-test',manager:'codex',name:'Nova',role:'測試員',kind:'worker'}
 ];
-const state = {tasks:[],messages:[],employees:[],activities:[],drafts:[],slackThreads:[],backend:{ready:false},modelCatalog:null};
+const state = {tasks:[],messages:[],employees:[],activities:[],drafts:[],slackThreads:[],backend:{ready:false},modelCatalog:null,onboarding:null};
 let transport = 'loading', received = false, view = 'floor', source = 'office', choice = 'both', targetTouched = false;
 let selected = '', threadId = '', slackId = '', sending = false, scene, previousChat = '', previousTeams = '', previousList = '', previousScene = '';
 let lastSequence = 0, issuedSequence = 0;
+let stateTag = '';
 const chatBox = $('chat-body'), field = $('message'), newChatMarkup = chatBox.innerHTML;
 const titleFor = key => ({claude:'Claude',codex:'Codex',both:'兩位主管'}[key] || key);
 const targetsFor = target => target==='both' ? ['claude','codex'] : [target];
@@ -70,7 +79,7 @@ function putStore(key, value) { try {if(value == null) localStorage.removeItem('
 let lifeEnabled = getStore('office-life') !== false;
 let lifeFrame = null;
 const savedModels = {...getStore('models')};
-const effortLabels = {none:'關閉',low:'低',medium:'中',high:'高',xhigh:'極高',max:'最高'};
+const effortLabels = {none:'Off',low:'Low',medium:'Medium',high:'High',xhigh:'XHigh',max:'Max'};
 let previousModelMenu = '';
 const themeToggle = $('theme-toggle');
 const themeIcon = themeToggle.querySelector('[data-icon]');
@@ -91,7 +100,97 @@ themeToggle.addEventListener('click', () => {
   putStore('theme', theme);
 });
 const draftKey = () => 'draft:' + (threadId || 'new');
-function saveDraft() { if(!slackId) putStore(draftKey(),field.value ? {text:field.value,choice} : null); }
+const attachmentDrafts = new Map();
+const draftAttachments = () => attachmentDrafts.get(draftKey()) || [];
+const attachmentInput = $('attachment-input');
+attachmentInput.accept=Object.keys(attachmentTypes).map(ext=>'.'+ext).join(',');
+let previousAttachmentList = '';
+let pastedImages = 0;
+
+function clearDraftAttachments(key) {
+  for (const entry of attachmentDrafts.get(key) || []) if (entry.preview) URL.revokeObjectURL(entry.preview);
+  attachmentDrafts.delete(key);
+}
+
+function addAttachments(files, pasted = false) {
+  if (sending || slackId || !attachmentType) return;
+  const draft=draftAttachments().slice();
+  let total=draft.reduce((sum,entry)=>sum+entry.file.size,0);
+  const rejected=new Set();
+  for (const file of files) {
+    const screenshotType=Object.keys(attachmentTypes).find(ext=>attachmentTypes[ext]===file.type && file.type.startsWith('image/'));
+    const name=pasted&&screenshotType ? `截圖-${++pastedImages}.${screenshotType}` : file.name.trim();
+    const mime=attachmentType(name);
+    if (!mime || name.length>180 || /[\x00-\x1f\x7f\\/:*?"<>|]/.test(name)) {
+      rejected.add('支援 PNG、JPEG、WebP、PDF、TXT、Markdown、CSV 和 JSON。');
+      continue;
+    }
+    if (!file.size || file.size>attachmentFileBytes) { rejected.add('請選擇 10 MB 以下的非空白檔案。'); continue; }
+    if (mime.startsWith('image/')&&file.size>attachmentImageBytes) { rejected.add('單張圖片最多 7 MB。'); continue; }
+    if (draft.length>=attachmentLimit) { rejected.add('一次最多附加 5 個檔案。'); break; }
+    if (total+file.size>attachmentTotalBytes) { rejected.add('附件總大小最多 20 MB。'); continue; }
+    draft.push({ id:crypto.randomUUID(), name, file, mime, preview:mime.startsWith('image/')?URL.createObjectURL(file):'' });
+    total+=file.size;
+  }
+  if (draft.length) attachmentDrafts.set(draftKey(),draft);
+  note([...rejected].join(' '));
+  renderControls();
+}
+
+function renderDraftAttachments() {
+  const entries=draftAttachments();
+  const key=JSON.stringify([sending,entries.map(entry=>entry.id)]);
+  if (key===previousAttachmentList) return;
+  previousAttachmentList=key;
+  const container=$('composer-attachments');
+  container.hidden=!entries.length;
+  container.replaceChildren(...entries.map(entry=>{
+    const card=el('div','attachment-item'+(entry.preview?' attachment-image':''));
+    const remove=el('button','attachment-remove');
+    remove.type='button';
+    remove.disabled=sending;
+    remove.setAttribute('aria-label','移除 '+entry.name);
+    remove.innerHTML=iconMarkup('close');
+    remove.onclick=()=>{
+      if (entry.preview) URL.revokeObjectURL(entry.preview);
+      const rest=draftAttachments().filter(file=>file.id!==entry.id);
+      if (rest.length) attachmentDrafts.set(draftKey(),rest);
+      else attachmentDrafts.delete(draftKey());
+      note('');
+      renderControls();
+      $('attach').focus();
+    };
+    if (entry.preview) {
+      const image=el('img');
+      image.src=entry.preview; image.alt=entry.name;
+      card.append(image);
+    } else {
+      const icon=el('span','attachment-file-icon');
+      icon.innerHTML=iconMarkup('file'); icon.setAttribute('aria-hidden','true');
+      card.append(icon);
+    }
+    const filename=el('span','attachment-name',entry.name);
+    filename.title=entry.name;
+    card.append(filename,remove);
+    return card;
+  }));
+}
+
+function encodeAttachment(entry) {
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve({ name:entry.name,data:reader.result.split(',')[1] });
+    reader.onerror=()=>reject(new Error('無法讀取「'+entry.name+'」。請移除後重新附加。'));
+    reader.readAsDataURL(entry.file);
+  });
+}
+
+function saveDraft() {
+  if(!slackId) {
+    const options=workspaceTools.draft();
+    putStore(draftKey(),field.value||options.workflow.length||options.references.length ? {text:field.value,choice} : null);
+  }
+}
 function restoreDraft() {
   const stored = getStore(draftKey());
   field.value = typeof stored?.text === 'string' ? stored.text : '';
@@ -218,7 +317,8 @@ function groupedThreads() {
   }
   for(const group of threads.values()){
     group.tasks.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
-    group.text=group.tasks[0].text;
+    const first=state.messages.find(message=>message.threadId===group.id&&message.author==='user');
+    group.text=group.tasks[0].text||first?.attachments?.[0]?.name||'附件交辦';
     const latest=new Map(group.tasks.map(task=>[task.manager,task]));
     const states=Array.from(latest.values(),t=>t.status);
     group.status=states.find(s=>active.has(s))??states.find(s=>s==='queued')??states.find(s=>s==='failed')??'done';
@@ -226,10 +326,12 @@ function groupedThreads() {
   return [...threads.values()].sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
 }
 function renderList() {
+  workspaceTools.setView(view==='history'?source:'');
   if(view!=='history')return;
   const query=$('search').value.toLowerCase().trim(),filter=$('hist-filter').value;
   $('hist-filter').hidden=source==='slack';
   document.querySelectorAll('[data-source]').forEach(b=>{b.classList.toggle('on',b.dataset.source===source);b.setAttribute('aria-pressed',b.dataset.source===source);});
+  if(source==='board'||source==='knowledge')return;
   let rows=source==='slack' ? [...state.slackThreads].sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt))) : groupedThreads();
   rows=rows.filter(row=>{
     const matched=!query||String(row.text||'').toLowerCase().includes(query)||(row.messages||state.messages.filter(m=>m.threadId===row.id)).some(m=>m.text.toLowerCase().includes(query));
@@ -249,11 +351,13 @@ function effortOptions(manager, model) {
   const catalog=state.modelCatalog?.[manager];
   return catalog?.models.find(item=>item.id===model)?.efforts ?? catalog?.defaultEfforts ?? [];
 }
-function modelSelection(manager) {
+function modelSelection(manager, saved = savedModels[manager]) {
   const catalog=state.modelCatalog?.[manager];
-  const saved=savedModels[manager];
-  const model=catalog?.models.some(item=>item.id===saved?.model)?saved.model:'';
-  const effort=effortOptions(manager,model).includes(saved?.effort)?saved.effort:'';
+  if(!catalog)return {model:'',effort:''};
+  const model=catalog.models.some(item=>item.id===saved?.model)?saved.model:catalog.defaultModel;
+  const choices=effortOptions(manager,model);
+  const preferred=choices.includes(saved?.effort)?saved.effort:catalog.defaultEffort;
+  const effort=choices.includes(preferred)?preferred:choices.at(-1);
   return {model,effort};
 }
 function modelOption(value,label) {
@@ -280,7 +384,7 @@ function createEffortSlider(manager) {
   function update() {
     const index=input.valueAsNumber;
     const effort=choices[index];
-    const text=effort ? effortLabels[effort] ?? effort : '預設';
+    const text=effortLabels[effort] ?? effort ?? '';
     label.textContent=text;
     input.setAttribute('aria-valuetext',text);
     const progress=100*index/Math.max(1,choices.length-1);
@@ -288,8 +392,8 @@ function createEffortSlider(manager) {
     return effort;
   }
   function fill(model, effort) {
-    choices=['',...effortOptions(manager,model)];
-    input.max=String(choices.length-1);
+    choices=effortOptions(manager,model);
+    input.max=String(Math.max(0,choices.length-1));
     input.value=String(Math.max(0,choices.indexOf(effort)));
     scale.replaceChildren(...choices.map(()=>el('span','effort-tick')));
     return update();
@@ -315,7 +419,7 @@ function renderModelSettings() {
       const selection=modelSelection(manager);
       const model=el('select');
       model.setAttribute('aria-label',titleFor(manager)+' 模型');
-      model.append(modelOption('','預設 · '+info.defaultLabel),...info.models.map(item=>modelOption(item.id,item.label)));
+      model.append(...info.models.map(item=>modelOption(item.id,item.label)));
       model.value=selection.model;
       const effort=createEffortSlider(manager);
       effort.fill(selection.model,selection.effort);
@@ -324,7 +428,8 @@ function renderModelSettings() {
         putStore('models',savedModels);
       }
       model.onchange=()=>{
-        save(effort.fill(model.value,savedModels[manager]?.effort));
+        const selection=modelSelection(manager,{model:model.value,effort:savedModels[manager]?.effort});
+        save(effort.fill(selection.model,selection.effort));
         effort.input.disabled=effort.input.max==='0';
       };
       effort.input.oninput=()=>save(effort.update());
@@ -348,6 +453,9 @@ function renderModelSettings() {
   }
 }
 function renderControls(){
+  const tools=workspaceTools.draft();
+  const hasPlan=tools.workflow.length>0;
+  const invalidPlan=hasPlan&&(choice==='both'||!field.value.trim());
   document.querySelectorAll('[data-target]').forEach(b=>{
     const target=b.dataset.target;
     b.classList.toggle('on',target===choice);
@@ -355,18 +463,25 @@ function renderControls(){
     b.disabled=!!slackId||sending;
   });
   const unavailable=targetsFor(choice).filter(id=>!teamReady(id)).map(titleFor);
-  const readinessNote=!slackId&&transport==='ok'&&unavailable.length
-    ? unavailable.join('、')+' 尚未就緒。請展開右上角的連線狀態查看設定。' : '';
+  let readinessNote=!slackId&&transport==='ok'&&unavailable.length
+    ? unavailable.join('、')+' 尚未就緒。請點右上角的「登入」查看設定。' : '';
+  if(!slackId&&hasPlan&&choice==='both') readinessNote='分工需要指定一位審閱主管。';
   const targetStatus=$('target-status');
   if(targetStatus.textContent!==readinessNote)targetStatus.textContent=readinessNote;
   targetStatus.hidden=!readinessNote;
   $('chat-new').disabled=sending;$('history-new').disabled=sending;
+  $('chat-board').hidden=!threadId||!state.tasks.some(task=>task.threadId===threadId&&task.hasWorkflow);
   $('chat-heading').textContent=slackId?'Slack 對話紀錄':threadId?'任務對話':'任務交辦台';
   document.querySelector('.recipients').hidden=!!slackId;
   $('composer').hidden=!!slackId;$('execution-help').hidden=!!slackId;
   renderModelSettings();
+  renderDraftAttachments();
+  workspaceTools.renderDraft();
   field.placeholder=(threadId?'追問':'交辦給')+titleFor(choice)+'…';
-  $('send').disabled=!field.value.trim()||sending||transport!=='ok'||!targetReady(choice);
+  $('attach').disabled=sending||!attachmentType;
+  if (!attachmentType) $('attach').title='請重新啟動 Goose Office 以啟用附件。';
+  $('send').disabled=(!field.value.trim()&&!draftAttachments().length&&!tools.references.length)||
+    invalidPlan||sending||transport!=='ok'||!targetReady(choice);
   const sendHint=sending?'正在送出':transport!=='ok'?'等待本機服務連線':readinessNote||'送出任務';
   $('send').title=sendHint;field.readOnly=sending;
   $('send').querySelector('span').textContent=sending?'送出中':'送出';
@@ -483,7 +598,44 @@ function renderMessage(message, staff) {
   head.append(el('b','',message.author==='user'?'你':author?.name||message.author),
     message.preview?el('span','writing-label','撰寫中'):el('time','',when(message.createdAt)));
   body.append(head);
-  messageText(body,message.text,{taskId:message.taskId,raw:message.author==='user',preview:message.preview});
+  if (message.text) messageText(body,message.text,{taskId:message.taskId,raw:message.author==='user',preview:message.preview});
+  if (message.attachments?.length) {
+    const files=el('div','message-attachments');
+    for (const file of message.attachments) {
+      const url='/api/attachments/'+encodeURIComponent(file.id);
+      const image=file.mime.startsWith('image/');
+      const link=el('a','attachment-item'+(image?' attachment-image':''));
+      link.href=url+'?download=1';
+      link.download=file.name;
+      link.title='下載 '+file.name;
+      if (image) {
+        const preview=el('img');
+        preview.src=url; preview.alt=''; preview.loading='lazy';
+        link.append(preview);
+      } else {
+        const icon=el('span','attachment-file-icon');
+        icon.innerHTML=iconMarkup('file'); icon.setAttribute('aria-hidden','true');
+        link.append(icon);
+      }
+      link.append(el('span','attachment-name',file.name));
+      files.append(link);
+    }
+    body.append(files);
+  }
+  if (message.references?.length) {
+    const references=el('div','message-references');
+    for (const ref of message.references) {
+      const quote=el('details','message-reference');
+      const person=staff.find(member=>member.id===ref.author);
+      const label=el('summary','','引用 · '+(ref.author==='user'?'你':person?.name||ref.author));
+      const source=el('button','small-action','開啟原任務');
+      source.type='button';
+      source.onclick=()=>{ showView('history'); openThread(ref.sourceThread); };
+      quote.append(label,el('blockquote','',ref.excerpt),source);
+      references.append(quote);
+    }
+    body.append(references);
+  }
   row.append(avatar(message.author),body);
   if(message.preview)row.setAttribute('aria-live','off');
   return row;
@@ -566,6 +718,48 @@ function selectEmployee(id) {
   else openNew(person.manager||id);
   renderTeams();
 }
+const loginDialog = $('login-dialog');
+const loginFeedback = $('login-feedback');
+const loginCheck = $('login-check');
+const loginStart = $('login-start');
+const loginCancel = $('login-cancel');
+const loginProgress = $('login-progress');
+const loginStatusLabels = {
+  ready:'已就緒', login:'待登入', setup:'待設定', loading:'檢查中', offline:'無法檢查',
+  installing:'安裝中', authorizing:'等候授權', failed:'待重試', cancelled:'已取消'
+};
+let loginRequest = false;
+function showLoginFeedback(message) {
+  loginFeedback.textContent=message;
+  loginFeedback.hidden=!message;
+}
+function renderLoginStatus() {
+  const setup=state.onboarding;
+  const running=['running','cancelling'].includes(setup?.state);
+  const ready=transport==='ok'&&targetReady('both');
+  for (const id of ['claude','codex']) {
+    let connection;
+    if (transport==='loading') connection={state:'loading',detail:'正在檢查本機登入設定。'};
+    else if (transport==='error') connection={state:'offline',detail:'無法連線至本機服務。請確認 Goose Office 正在執行。'};
+    else connection=state.backend.connections?.[id] ?? (teamReady(id)
+      ? {state:'ready',detail:'已找到本機登入設定。'}
+      : {state:'setup',detail:'請依下方步驟完成本機設定。'});
+    const step=setup?.managers?.[id];
+    if (transport==='ok' && step && !teamReady(id) && step.state!=='ready') connection=step;
+    const badge=$(id+'-login-status');
+    badge.dataset.state=connection.state;
+    badge.textContent=loginStatusLabels[connection.state];
+    $(id+'-login-detail').textContent=connection.detail;
+  }
+  const progress=setup?.detail || (transport==='ok'&&!setup ? '請重新啟動 Goose Office 以啟用自動設定。' : '');
+  if (loginProgress.textContent!==progress) loginProgress.textContent=progress;
+  loginProgress.hidden=!progress;
+  loginStart.hidden=running||ready;
+  loginStart.disabled=loginRequest||transport!=='ok'||!setup;
+  loginStart.textContent=['failed','cancelled'].includes(setup?.state)?'重試設定':'開始設定';
+  loginCancel.hidden=!running;
+  loginCancel.disabled=loginRequest||setup?.state==='cancelling';
+}
 function renderState() {
   const ok=transport==='ok',ready=ok&&targetReady('both');
   const offline=['claude','codex'].filter(id=>!teamReady(id));
@@ -577,22 +771,84 @@ function renderState() {
   $('queue-count').textContent=received?state.tasks.filter(t=>t.status==='queued').length:'—';
   const count=new Set(state.tasks.map(t=>t.threadId)).size+state.slackThreads.length;
   $('nav-count').textContent=count>0?count:'';
+  renderLoginStatus();
   renderTeams();renderList();renderControls();renderChat();
+  workspaceTools.refreshPane();
 }
-async function refresh() {
+async function refresh({checkLogin=false}={}) {
   const seq=++issuedSequence;
   try{
-    const res=await fetch('/api/state',{cache:'no-store',signal:AbortSignal.timeout(7500)});
+    const options={cache:'no-store',signal:AbortSignal.timeout(23000)};
+    if(checkLogin) Object.assign(options,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    else if(stateTag) options.headers={'If-None-Match':stateTag};
+    const res=await fetch(checkLogin?'/api/connections/check':'/api/state',options);
+    if(res.status===304){
+      if(seq<lastSequence)return transport==='ok';
+      lastSequence=seq;
+      if(transport!=='ok'){transport='ok';renderState();}
+      else {refreshTimers();workspaceTools.refreshPane();}
+      return true;
+    }
     if(!res.ok)throw Error('state '+res.status);
     const next=await res.json();
     if(!Array.isArray(next.tasks)||!Array.isArray(next.messages)||!Array.isArray(next.employees))throw Error('state');
-    if(seq<lastSequence)return;lastSequence=seq;
-    Object.assign(state,{...next,activities:next.activities||[],drafts:next.drafts||[],slackThreads:next.slackThreads||[],backend:next.backend||{ready:false},modelCatalog:next.modelCatalog||null});
+    if(seq<lastSequence)return transport==='ok';lastSequence=seq;
+    stateTag=res.headers.get('ETag')||'';
+    Object.assign(state,{...next,activities:next.activities||[],drafts:next.drafts||[],slackThreads:next.slackThreads||[],backend:next.backend||{ready:false},modelCatalog:next.modelCatalog||null,onboarding:next.onboarding||null});
     if(!received&&!targetTouched&&!getStore(draftKey())&&!targetReady(choice))choice=defaultTarget();
     transport='ok';received=true;
-  }catch{if(seq<lastSequence)return;lastSequence=seq;transport='error';}
+  }catch{if(checkLogin||seq<lastSequence)return false;lastSequence=seq;transport='error';}
   renderState();
+  return transport==='ok';
 }
+$('login-open').onclick=()=>loginDialog.showModal();
+async function requestLoginSetup(action) {
+  if (loginRequest) return;
+  loginRequest=true;
+  showLoginFeedback('');
+  renderLoginStatus();
+  const seq=++issuedSequence;
+  try {
+    const res=await fetch('/api/connections/setup/'+action,{
+      method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(8000)
+    });
+    if (!res.ok) throw new Error(res.status===404 ? '請重新啟動 Goose Office 以啟用自動設定。' : '無法更新設定，請稍後再試。');
+    const result=await res.json();
+    if (seq>=lastSequence) {
+      lastSequence=seq;
+      state.onboarding=result.onboarding;
+    }
+  } catch (error) {
+    showLoginFeedback(error.name==='Error'&&error.message ? error.message : '無法確認設定狀態，請稍後再試。');
+  } finally {
+    loginRequest=false;
+    renderLoginStatus();
+  }
+  if (action==='start'&&loginDialog.open&&!loginCancel.hidden) loginCancel.focus();
+}
+loginStart.onclick=()=>requestLoginSetup('start');
+loginCancel.onclick=()=>requestLoginSetup('cancel');
+for (const button of loginDialog.querySelectorAll('[data-copy-command]')) {
+  button.onclick=async()=>{
+    const command=button.previousElementSibling.textContent;
+    try {
+      await navigator.clipboard.writeText(command);
+      showLoginFeedback('已複製指令，請貼到終端機執行。');
+    } catch {
+      showLoginFeedback('無法使用剪貼簿。請選取指令後手動複製。');
+    }
+  };
+}
+loginCheck.onclick=async()=>{
+  loginCheck.disabled=true;
+  showLoginFeedback('正在檢查本機登入狀態…');
+  try {
+    const updated=await refresh({checkLogin:true});
+    showLoginFeedback(updated?'本機登入狀態已更新。':'檢查失敗，請確認本機服務已啟動後再試一次。');
+  } finally {
+    loginCheck.disabled=false;
+  }
+};
 $('brand').onclick=$('floor-nav').onclick=()=>showView('floor');$('history-nav').onclick=()=>showView('history');
 for(const b of document.querySelectorAll('[data-source]'))b.onclick=()=>{source=b.dataset.source;renderList();};
 $('threads').onclick=e=>{const b=e.target.closest('[data-thread]');if(b)openThread(b.dataset.thread,source==='slack');};
@@ -600,6 +856,21 @@ $('teams').onclick=e=>{const b=e.target.closest('[data-employee]');if(b)selectEm
 $('search').oninput=$('hist-filter').onchange=renderList;
 for(const b of document.querySelectorAll('[data-target]'))b.onclick=()=>{targetTouched=true;choice=b.dataset.target;saveDraft();note('');renderControls();};
 $('chat-new').onclick=$('history-new').onclick=()=>{openNew();goChatMobile();field.focus({preventScroll:true});};
+$('chat-board').onclick=()=>{source='board';workspaceTools.setBoardThread(threadId);showView('history');};
+$('attach').onclick=()=>attachmentInput.click();
+attachmentInput.onchange=()=>{
+  addAttachments(attachmentInput.files);
+  attachmentInput.value='';
+};
+field.onpaste=event=>{
+  if (!attachmentType) return;
+  const files=Array.from(event.clipboardData?.items||[])
+    .filter(item=>item.kind==='file').map(item=>item.getAsFile()).filter(Boolean);
+  if (files.length) {
+    event.preventDefault();
+    addAttachments(files,true);
+  }
+};
 field.oninput=()=>{saveDraft();renderControls();};
 field.onkeydown=e=>{
   if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){
@@ -608,29 +879,48 @@ field.onkeydown=e=>{
 };
 $('composer').onsubmit=async e=>{
   e.preventDefault();const text=field.value.trim();
-  if(!text||$('send').disabled||slackId)return;
+  if($('send').disabled||slackId)return;
+  const entries=draftAttachments();
+  const {references,workflow}=workspaceTools.draft();
+  const quotes=references.map(({id,offset})=>({id,offset}));
   const managers=targetsFor(choice);
   const modelSettings=Object.fromEntries(managers.map(manager=>[manager,modelSelection(manager)])
     .filter(([,setting])=>setting.model||setting.effort));
   const existing=state.tasks.find(t=>t.threadId===threadId);
   if(threadId&&!existing){note('這個任務串已無法取得，請新增交辦。');return;}
   const endpoint=existing?'/api/tasks/'+encodeURIComponent(existing.id)+'/messages':'/api/tasks';
-  const pendingKey='pending:'+draftKey(),stored=getStore(pendingKey);
-  const fingerprint=JSON.stringify(Object.keys(modelSettings).length ? [endpoint,managers,text,modelSettings] : [endpoint,managers,text]);
+  const key=draftKey(),pendingKey='pending:'+key,stored=getStore(pendingKey);
+  const parts=[endpoint,managers,text];
+  if(Object.keys(modelSettings).length)parts.push(modelSettings);
+  if(entries.length)parts.push(entries.map(entry=>entry.id));
+  if(quotes.length||workflow.length)parts.push({ quotes,workflow });
+  const fingerprint=JSON.stringify(parts);
   const clientId=stored?.fingerprint===fingerprint?stored.clientId:crypto.randomUUID();
   putStore(pendingKey,{fingerprint,clientId});
   sending=true;renderControls();note('');
   try{
+    const attachments=entries.length ? await Promise.all(entries.map(encodeAttachment)) : undefined;
     const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({managers,text,clientId,modelSettings}),signal:AbortSignal.timeout(12000)});
+      body:JSON.stringify({managers,text,clientId,modelSettings,attachments,
+        references:quotes.length?quotes:undefined,workflow:workflow.length?workflow:undefined
+      }),signal:AbortSignal.timeout(entries.length?90000:12000)});
     const answer=await res.json().catch(()=>null);
     if(!res.ok)throw Error(typeof answer?.error==='string'?answer.error:'服務回應 HTTP '+res.status);
     if(!answer?.threadId)throw Error('服務未回傳任務編號');
-    putStore(draftKey(),null);putStore(pendingKey,null);threadId=answer.threadId;
+    clearDraftAttachments(key);
+    workspaceTools.clearDraft(key);
+    putStore(key,null);putStore(pendingKey,null);threadId=answer.threadId;
     field.value='';await refresh();renderChat(true);
   }catch(error){note('送出未確認，草稿已保留。'+error.message);}
   finally{sending=false;renderControls();}
 };
+const workspaceTools=mountWorkspaceTools({
+  el, people:identities, getDraftKey:draftKey, getStore, putStore, getChoice:()=>choice,
+  setChoice(target) { choice=target; targetTouched=true; putStore(draftKey(),{text:field.value,choice}); },
+  canEdit:()=>!sending, onDraftChange() {saveDraft();renderControls();},
+  openThread, openTask(id) {const task=state.tasks.find(item=>item.id===id); if(task)openThread(task.threadId);},
+  openNew, when
+});
 try{scene=createOfficeScene($('office-canvas'),{onSelect:selectEmployee,onLife:renderOfficeLife});}catch(error){console.error('Office scene',error);$('selection-hint').textContent='可在下方選取團隊成員';}
 if('ResizeObserver' in window){
   new ResizeObserver(()=>positionOfficeDialogue(lifeFrame?.speech)).observe($('office-canvas'));

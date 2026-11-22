@@ -1,4 +1,4 @@
-function toolInfo(call) {
+export function toolInfo(call) {
   const name = String(call.name || 'tool').slice(0, 120);
   const args = call.arguments || {};
   const command = typeof args.command === 'string' ? args.command : '';

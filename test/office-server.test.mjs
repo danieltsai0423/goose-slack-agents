@@ -9,6 +9,9 @@ import { createOfficeRuntime } from '../src/office-runtime.mjs';
 import { createOfficeServer } from '../src/office-server.mjs';
 import { openSlackHistory } from '../src/office-slack.mjs';
 import { openStore } from '../src/store.mjs';
+import { readOfficeAttachments } from '../src/office-attachments.mjs';
+import { requiresNativeCodex } from '../src/office-models.mjs';
+import { runNativeCodex } from '../src/office-codex.mjs';
 
 async function officeServer(t, options = {}) {
   const calls = [];
@@ -18,7 +21,7 @@ async function officeServer(t, options = {}) {
   }});
   const slackHistory = options.slackHistory ?? {read: () => [], close() {}};
   const backend = options.backend ?? (async () => ({ready:true, managers:{claude:true,codex:true}}));
-  const server = createOfficeServer({runtime,slackHistory,backend});
+  const server = createOfficeServer({runtime,slackHistory,backend,onboarding:options.onboarding});
   server.listen(0, '127.0.0.1');
   await once(server,'listening');
   const port = server.address().port;
@@ -82,6 +85,121 @@ test('HTTP only accepts the local office origin, JSON and available managers', a
   assert.equal((await request('/api/tasks',body,{Origin:'http://127.0.0.1:' + port})).status,202);
 });
 
+test('the login panel can refresh local readiness without calling a manager', async (t) => {
+  let loggedIn = false;
+  let forcedChecks = 0;
+  const { request, port, calls } = await officeServer(t, {
+    async backend({ force } = {}) {
+      if (force) {
+        forcedChecks++;
+        loggedIn = true;
+      }
+      return { ready: loggedIn, managers: { claude: false, codex: loggedIn } };
+    }
+  });
+  assert.equal((await request('/api/state')).body.backend.managers.codex, false);
+  assert.equal((await request('/api/connections/check', {})).status, 403);
+  assert.equal((await request('/api/connections/check', {}, { Origin: 'http://other.test' })).status, 403);
+  assert.equal(forcedChecks, 0);
+  const checked = await request('/api/connections/check', {}, { Origin: 'http://127.0.0.1:' + port });
+  assert.equal(checked.status, 200);
+  assert.equal(checked.body.backend.managers.codex, true);
+  assert.equal(forcedChecks, 1);
+  assert.deepEqual(calls, []);
+});
+
+test('onboarding actions require the office origin and report progress through state', async t => {
+  let state = 'idle';
+  const snapshot = () => ({ state });
+  const { request, port } = await officeServer(t, {
+    onboarding: {
+      snapshot,
+      start() { state = 'running'; return snapshot(); },
+      cancel() { state = 'cancelling'; return snapshot(); }
+    }
+  });
+  const start = '/api/connections/setup/start';
+  const cancel = '/api/connections/setup/cancel';
+  const headers = { Origin: `http://127.0.0.1:${port}` };
+  assert.equal((await request(start, {})).status, 403);
+  assert.equal((await request(start, {}, { Origin: 'https://another.test' })).status, 403);
+  assert.equal((await request('/api/state')).body.onboarding.state, 'idle');
+  const started = await request(start, {}, headers);
+  assert.equal(started.status, 202);
+  assert.equal(started.body.onboarding.state, 'running');
+  assert.equal((await request('/api/state')).body.onboarding.state, 'running');
+  assert.equal((await request(cancel, {}, headers)).body.onboarding.state, 'cancelling');
+});
+
+test('task attachments are shared, downloadable and retained for follow-up turns', async t => {
+  const { request, runtime, calls, port } = await officeServer(t);
+  const screenshot = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jKOcAAAAASUVORK5CYII=';
+  const body = {
+    text: '', managers: ['claude', 'codex'], clientId: 'attachment-test',
+    attachments: [
+      { name: '截圖.png', data: screenshot },
+      { name: '摘要.txt', data: Buffer.from('附件內容').toString('base64') }
+    ]
+  };
+  const sent = await request('/api/tasks', body);
+  assert.equal(sent.status, 202);
+  const repeated = await request('/api/tasks', body);
+  assert.deepEqual(repeated.body.tasks.map(task => task.id), sent.body.tasks.map(task => task.id));
+  assert.equal((await request('/api/tasks', { ...body, attachments: body.attachments.slice(1) })).status, 409);
+  assert.equal((await request('/api/tasks', { ...body, clientId: 'invalid-attachment-test', attachments: [
+    { name: 'false.png', data: Buffer.from('not an image').toString('base64') }
+  ] })).status, 400);
+  await runtime.idle();
+  assert.deepEqual(new Set(calls.map(call => call.id)), new Set(['claude', 'codex']));
+  assert.ok(calls.every(call => call.attachments[1].text === '附件內容'));
+  const state = (await request('/api/state')).body;
+  const [message] = state.messages.filter(item => item.author === 'user');
+  const [file] = message.attachments;
+  assert.equal(file.name, '截圖.png');
+  assert.equal(file.data, undefined);
+  const url = `http://127.0.0.1:${port}/api/attachments/${file.id}`;
+  const preview = await fetch(url);
+  assert.equal(preview.headers.get('content-type'), 'image/png');
+  assert.equal(Buffer.from(await preview.arrayBuffer()).toString('base64'), screenshot);
+  const download = await fetch(url + '?download=1', { method: 'HEAD' });
+  assert.match(download.headers.get('content-disposition'), /^attachment;/);
+  const follow = await request('/api/tasks/' + sent.body.tasks[0].id + '/messages', { text: '追問附件', managers: ['codex'] });
+  assert.equal(follow.status, 202);
+  await runtime.idle();
+  assert.equal(calls.at(-1).attachments[0].name, '截圖.png');
+});
+
+test('PDF attachments provide text and rendered scan pages', async () => {
+  function pdf(stream) {
+    const objects = [
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 120 80] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+      `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    ];
+    let source = '%PDF-1.4\n';
+    const offsets = [];
+    for (const [index, item] of objects.entries()) {
+      offsets.push(source.length);
+      source += `${index + 1} 0 obj\n${item}\nendobj\n`;
+    }
+    const xref = source.length;
+    source += 'xref\n0 6\n0000000000 65535 f \n';
+    for (const offset of offsets) source += `${String(offset).padStart(10, '0')} 00000 n \n`;
+    source += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+    return Buffer.from(source).toString('base64');
+  }
+  const [document, scan] = await readOfficeAttachments([
+    { name: 'brief.pdf', data: pdf('BT /F1 18 Tf 15 40 Td (Office notes) Tj ET') },
+    { name: 'scan.pdf', data: pdf('1 0 0 rg 10 10 92 55 re f') }
+  ]);
+  assert.match(document.text, /Office notes/);
+  assert.deepEqual(document.visuals, []);
+  assert.equal(scan.visuals[0].page, 1);
+  assert.equal(Buffer.from(scan.visuals[0].data, 'base64').subarray(0, 3).toString('hex'), 'ffd8ff');
+});
+
 test('dual and follow-up requests pin their own model and effort for every stage', async (t) => {
   const {request,runtime,calls} = await officeServer(t);
   const modelSettings = {
@@ -106,6 +224,79 @@ test('dual and follow-up requests pin their own model and effort for every stage
   }
   const {body:state}=await request('/api/state');
   assert.deepEqual(state.modelCatalog.codex.models.find(model=>model.id==='gpt-6.2-astra').efforts,['medium','high']);
+  assert.equal(state.modelCatalog.codex.defaultModel, 'gpt-6.2-sol');
+  assert.equal(state.modelCatalog.codex.defaultEffort, 'high');
+});
+
+test('the office catalog defaults can be sent as explicit settings for both managers', async t => {
+  const {request, runtime, calls} = await officeServer(t, {
+    backend: async () => ({ ready: true, managers: { claude: true, codex: true },
+      nativeCodexEfforts: { 'gpt-6.2-sol': ['medium', 'high', 'xhigh', 'max'] } })
+  });
+  const {body: {modelCatalog}} = await request('/api/state');
+  const modelSettings = Object.fromEntries(Object.entries(modelCatalog).map(([id, {defaultModel, defaultEffort}]) =>
+    [id, { model: defaultModel, effort: defaultEffort }]));
+  assert.deepEqual(modelSettings, {
+    claude: { model: 'claude-opus-5-5', effort: 'medium' },
+    codex: { model: 'gpt-6.2-sol', effort: 'xhigh' }
+  });
+  const response = await request('/api/tasks', { managers: ['claude', 'codex'], text: '回報結果', modelSettings });
+  assert.equal(response.status, 202);
+  await runtime.idle();
+  assert.ok(calls.length >= 2);
+  for (const {id, model, effort} of calls) assert.deepEqual({model, effort}, modelSettings[id]);
+  assert.equal(requiresNativeCodex('gpt-6.2-sol', 'xhigh'), true);
+});
+
+test('native Codex adds only the verified model efforts and keeps the selected effort during handoff', async t => {
+  const { request, runtime, calls } = await officeServer(t, {
+    backend: async () => ({
+      ready: true, managers: { claude: true, codex: true },
+      nativeCodexEfforts: { 'gpt-6.2-sol': ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] }
+    })
+  });
+  const catalog = (await request('/api/state')).body.modelCatalog.codex;
+  assert.deepEqual(catalog.models.find(model => model.id === 'gpt-6.2-sol').efforts, ['medium', 'high', 'xhigh', 'max']);
+  assert.deepEqual(catalog.models.find(model => model.id === 'gpt-6.2-astra').efforts, ['medium', 'high']);
+  const task = { managers: ['codex'], text: '驗證', modelSettings: { codex: { model: 'gpt-6.2-sol', effort: 'max' } } };
+  assert.equal((await request('/api/tasks', task)).status, 202);
+  const unavailable = { ...task, modelSettings: { codex: { model: 'gpt-6.2-astra', effort: 'max' } } };
+  assert.equal((await request('/api/tasks', unavailable)).status, 400);
+  await runtime.idle();
+  assert.ok(calls.length > 0 && calls.every(call => call.model === 'gpt-6.2-sol' && call.effort === 'max'));
+  assert.equal(requiresNativeCodex('gpt-6.2-sol', 'max'), true);
+  assert.equal(requiresNativeCodex('gpt-5.6-sol', 'xhigh'), false);
+});
+
+test('native Codex passes the precise effort and uses the appropriate tool scope', async () => {
+  for (const execute of [false, true]) {
+    const events = [];
+    const reply = await runNativeCodex({
+      model: 'gpt-6.2-sol', effort: 'max', execute, artifactDir: 'out', images: [], input: 'test',
+      onProgress: event => events.push(event),
+      async invoke(_command, args, input, feed) {
+        assert.ok(args.includes('model_reasoning_effort="max"'));
+        assert.ok(args.includes('forced_login_method="chatgpt"'));
+        assert.ok(args.includes(execute ? 'workspace-write' : 'read-only'));
+        assert.equal(args.includes('--add-dir'), execute);
+        assert.equal(args.includes('features.shell_tool=false'), !execute);
+        assert.equal(input, 'test');
+        if (execute) {
+          const item = { id: 'command-1', type: 'command_execution', command: 'node --version' };
+          feed(JSON.stringify({type: 'item.started', item}) + '\n');
+          feed(JSON.stringify({type: 'item.completed', item: {...item, exit_code: 0}}) + '\n');
+        }
+        feed(JSON.stringify({type: 'item.completed', item: {type: 'agent_message', text: 'ready'}}) + '\n');
+      }
+    });
+    assert.equal(reply, 'ready');
+    assert.deepEqual(events.at(-1), {type: 'text', text: 'ready'});
+    if (execute) {
+      assert.equal(events[0].kind, 'command');
+      assert.equal(events[1].status, 'done');
+      assert.equal(events[0].id, events[1].id);
+    } else assert.equal(events.length, 1);
+  }
 });
 
 test('state contains only the selected local Slack channel with deleted entries omitted', async (t) => {

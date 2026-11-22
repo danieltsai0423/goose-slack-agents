@@ -20,9 +20,16 @@ export const agentConfig = {
   }
 };
 
-export const gooseBin = process.env.GOOSE_BIN
-  ? resolve(projectDir, process.env.GOOSE_BIN)
-  : existsSync(bundledGoose) ? bundledGoose : 'goose';
+export const gooseVersion = '1.60.2';
+export const officeToolsDir = resolve(stateDir, 'office-tools');
+export const officeGooseBin = resolve(officeToolsDir, `goose-${gooseVersion}`, process.platform === 'win32' ? 'goose.exe' : 'goose');
+export const officeClaudeBin = resolve(officeToolsDir, 'claude', process.platform === 'win32' ? 'claude.exe' : 'claude');
+
+export function getGooseBin() {
+  if (process.env.GOOSE_BIN) return resolve(projectDir, process.env.GOOSE_BIN);
+  if (existsSync(bundledGoose)) return bundledGoose;
+  return existsSync(officeGooseBin) ? officeGooseBin : 'goose';
+}
 
 export function agentPaths(id) {
   return { home: resolve(stateDir, `goose-${id}`), workDir: resolve(stateDir, `work-${id}`) };

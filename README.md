@@ -19,7 +19,32 @@
 
 對話支援 Markdown 粗體、清單、表格、連結與程式碼。任務執行時可展開工作紀錄查看各回合、Goose 回傳的工具事件和耗時；完成後紀錄仍可查看。已授權的本機任務可將產出放進該任務的 `.data/office-files` 子資料夾，用 `[成果檔名](office-file:成果檔名)` 回傳下載連結。常用圖片、影片與音訊格式也會在對話裡提供預覽。
 
-任務與對話存於 `.data/office.sqlite`。任務紀錄的 Slack 頁籤會讀取現有橋接器已存到本機的近期討論串。網頁交辦及回覆保存在辦公室；要繼續從 Slack 收訊，另開終端執行原有的 `npm start`。可用 `OFFICE_PORT` 更改網頁服務埠。若主管顯示待登入，Claude 使用 `claude auth login`，Codex 使用 `npm run configure -- codex`。登入資訊約每兩分鐘重新檢查一次。
+交辦台的「附件」支援 PNG、JPEG、WebP、PDF、TXT、Markdown、CSV 和 JSON。也可在訊息欄直接貼上截圖。一次最多 5 個檔案，單張圖片 7 MB、其他附件 10 MB，合計 20 MB。主管會收到圖片、擷取的文件文字，以及掃描 PDF 的部分頁面。送出的原檔可在任務對話下載。
+
+「引用」可在本機搜尋舊任務的訊息。一次最多引用四則片段，送出時會保存片段，並在對話中提供原任務入口。引用內容作為資料交給主管。
+
+在「任務紀錄 → 記憶與技能」選成員即可新增提案、核准、退回或封存。主管與員工也能在回覆時提出建議，待使用者核准。核准的記憶只給指定成員使用，技能須符合目前交辦的觸發詞才會載入。
+
+「分工」可指定一位審閱主管、最多六個工序、各自的負責人和前置工序。主管也可在規劃時自行建立分工。跨組且互不依賴的純對話工序可並行，同一模型服務依序接單。使用本機工具的工序依序執行。失敗時，「分工看板」可以重試未完成的工序。服務重啟會接續純對話分工。執行中曾中斷的本機工序先標記待確認，保留完成的成果。
+
+交辦台初始選定 Opus 5.5 · Medium 和 GPT-6.2 Sol · XHigh，之後會記住你在該瀏覽器選擇的模型與 Effort。若本機尚未偵測到原生 Codex 訂閱登入或模型不支援 XHigh，GPT-6.2 Sol 會顯示並使用 High。
+
+若本機原生 Codex 已用 ChatGPT 帳號登入，交辦台會顯示該模型實際支援、且 Goose 尚未支援的 `xhigh` 和 `max`。選擇這些等級時會用原生 Codex 處理此次交辦，包括分派、審閱與圖片。需要本機工具的交辦可寫入專案工作目錄和成果目錄。 [Codex 推理強度設定](https://learn.chatgpt.com/docs/config-file/config-reference)
+
+可使用路徑中的 Codex CLI、以 `OFFICE_CODEX_BIN` 指定執行檔，或在專案安裝已驗證的版本：
+
+```powershell
+npm install --prefix .tools/office-codex --save-exact @openai/codex@0.171.0
+node .tools/office-codex/node_modules/@openai/codex/bin/codex.js login
+```
+
+重新開啟登入面板並按「重新檢查」即可更新可用的 Effort。
+
+任務與對話存於 `.data/office.sqlite`。任務紀錄的 Slack 頁籤會讀取現有橋接器已存到本機的近期討論串。網頁交辦及回覆保存在辦公室；要繼續從 Slack 收訊，另開終端執行原有的 `npm start`。可用 `OFFICE_PORT` 更改網頁服務埠。
+
+首次使用時，點右上角的「登入」→「開始設定」。系統會沿用現有 Goose CLI 和 `npm ci` 安裝的官方 Claude Code。缺少相容的執行檔時，系統會將官方版本安裝到專案狀態目錄。兩個授權頁面會依序開啟，已有登入設定的帳號會跳過。
+
+請在官方授權頁面使用自己的訂閱帳號。授權後，登入面板會自動檢查狀態。關閉面板後可隨時再開，也可按「取消設定」。若作業系統不支援自動安裝，或授權需要其他步驟，可展開「手動登入」。登入狀態檢查不會送出模型請求。
 
 需要 Node.js 24 以上、Goose CLI、Claude Code CLI。專案以 Goose 1.60.2 及 `npm ci` 安裝的 ACP adapter 為基準。Windows 可以把官方 Goose ZIP 解壓到 `.tools/goose`，或把 `goose.exe` 加入 `PATH`。也可在 `.env` 用 `GOOSE_BIN` 指定完整路徑。 [Goose 官方發行版](https://github.com/aaif-goose/goose/releases/tag/v1.60.2)
 

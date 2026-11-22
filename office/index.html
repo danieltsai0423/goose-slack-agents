@@ -20,6 +20,7 @@
       <div class="topbar-end">
         <div class="head-stats" role="group" aria-label="辦公室狀態"><span><i class="light"></i>執行中 <b id="active-count">—</b></span><span><i class="light queue"></i>排隊中 <b id="queue-count">—</b></span></div>
         <button class="icon-button theme-toggle" type="button" id="theme-toggle" aria-label="亮色模式" aria-pressed="false" title="切換至亮色模式"><i data-icon="sun"></i></button>
+        <button class="login-trigger" type="button" id="login-open" aria-haspopup="dialog"><i data-icon="login"></i>登入</button>
         <details class="service" id="service"><summary><span class="lamp"></span><span id="service-label">連線中</span><i data-icon="chev"></i></summary><div class="service-pop"><strong id="backend-name">本機工作區</strong><p id="backend-detail">正在取得服務狀態。</p></div></details>
       </div>
     </div>
@@ -50,12 +51,36 @@
       </div>
       <section class="panel history" id="history-view" hidden aria-labelledby="history-heading">
         <div class="history-head"><div class="panel-title"><span class="section-icon"><i data-icon="history"></i></span><h2 id="history-heading">所有交辦</h2></div><button class="small-action" id="history-new"><i data-icon="plus"></i>新增交辦</button></div>
-        <div class="history-tabs" role="group" aria-label="任務來源"><button data-source="office" class="on" aria-pressed="true">網頁交辦</button><button data-source="slack" aria-pressed="false">Slack 紀錄</button></div>
-        <div class="hist-filters"><label class="search"><i data-icon="search"></i><input id="search" type="search" placeholder="搜尋任務內容" aria-label="搜尋任務內容"></label><select id="hist-filter" aria-label="篩選任務狀態"><option value="all">所有狀態</option><option value="active">進行中</option><option value="done">已完成</option><option value="failed">執行失敗</option></select></div>
-        <div id="threads"></div>
+        <div class="history-tabs" role="group" aria-label="任務工作區"><button data-source="office" class="on" aria-pressed="true">網頁交辦</button><button data-source="slack" aria-pressed="false">Slack 紀錄</button><button data-source="board" aria-pressed="false">分工看板</button><button data-source="knowledge" aria-pressed="false">記憶與技能</button></div>
+        <div id="history-list">
+          <div class="hist-filters"><label class="search"><i data-icon="search"></i><input id="search" type="search" placeholder="搜尋任務內容" aria-label="搜尋任務內容"></label><select id="hist-filter" aria-label="篩選任務狀態"><option value="all">所有狀態</option><option value="active">進行中</option><option value="done">已完成</option><option value="failed">執行失敗</option></select></div>
+          <div id="threads"></div>
+        </div>
+        <div id="board-view" class="workspace-section" hidden>
+          <div class="workspace-toolbar"><p id="board-note" role="status"></p><button class="small-action" id="board-clear" type="button" hidden>返回最近分工</button><button class="small-action" id="board-new" type="button"><i data-icon="plus"></i>建立分工</button></div>
+          <div id="board-cards" class="board-lanes"></div>
+        </div>
+        <div id="knowledge-view" class="workspace-section" hidden>
+          <div class="workspace-toolbar">
+            <label>成員 <select id="knowledge-actor"></select></label>
+            <label>狀態 <select id="knowledge-status"><option value="pending">待審核</option><option value="approved">已核准</option><option value="rejected">已退回</option><option value="archived">已封存</option></select></label>
+          </div>
+          <details id="knowledge-new" class="knowledge-new">
+            <summary>新增提案</summary>
+            <form id="knowledge-form" class="workspace-form">
+              <label>類型 <select name="kind"><option value="memory">記憶</option><option value="skill">技能</option></select></label>
+              <label>標題 <input name="title" maxlength="90" required></label>
+              <label id="knowledge-keywords" hidden>觸發詞 <input name="keywords" maxlength="240" placeholder="以逗號分隔"></label>
+              <label>內容 <textarea name="body" maxlength="600" rows="4" required></textarea></label>
+              <button type="submit" class="login-trigger">送審</button>
+            </form>
+          </details>
+          <p id="knowledge-note" role="status"></p>
+          <div id="knowledge-entries"></div>
+        </div>
       </section>
       <section class="panel dispatch" aria-labelledby="chat-heading" id="dispatch">
-        <header class="chat-head"><div class="panel-title"><span class="section-icon chat-icon"><i data-icon="chat"></i></span><h2 id="chat-heading">任務交辦台</h2></div><button id="chat-new" class="icon-button" aria-label="開啟新的交辦" title="開啟新的交辦"><i data-icon="compose"></i></button></header>
+        <header class="chat-head"><div class="panel-title"><span class="section-icon chat-icon"><i data-icon="chat"></i></span><h2 id="chat-heading">任務交辦台</h2></div><div class="chat-head-actions"><button type="button" id="chat-board" class="small-action" hidden>查看分工</button><button id="chat-new" class="icon-button" aria-label="開啟新的交辦" title="開啟新的交辦"><i data-icon="compose"></i></button></div></header>
         <div class="recipients">
           <div class="target-switch" role="group" aria-label="選擇收件主管" aria-describedby="target-status">
             <button data-target="claude"><span class="id-dot clay"></span>Claude</button>
@@ -68,13 +93,87 @@
           <div class="empty-chat"><div class="chat-illustration" aria-hidden="true"><div class="pixel-bubble back"></div><div class="pixel-bubble front"><b></b><b></b><b></b></div></div><h3>開啟一個交辦</h3><p>寫下工作目標，主管會決定親自處理<br>或分派給團隊成員。</p></div>
         </div>
         <div class="compose-wrap"><div id="model-settings" class="model-settings" role="group" aria-label="模型與推理強度" hidden></div>
-          <form id="composer"><label class="sr-only" for="message">任務與訊息</label><textarea id="message" rows="2" placeholder="交辦給兩位主管…" required maxlength="8000"></textarea><div class="composer-actions"><span><kbd>Enter</kbd> 送出</span><button id="send" type="submit" disabled><i data-icon="send"></i><span>送出</span></button></div></form>
+          <form id="composer">
+            <div class="composer-attachments" id="composer-attachments" aria-label="待送出的附件" hidden></div>
+            <div class="composer-references" id="composer-references" aria-label="待送出的引用" hidden></div>
+            <label class="sr-only" for="message">任務與訊息</label>
+            <textarea id="message" rows="2" placeholder="交辦給兩位主管…" maxlength="8000"></textarea>
+            <div class="composer-actions">
+              <div class="composer-tools">
+                <button id="attach" class="attach-button" type="button" aria-label="附加檔案" title="附加檔案，也可在訊息欄貼上截圖"><i data-icon="plus"></i><span>附件</span></button>
+                <button id="reference-open" class="attach-button" type="button" aria-haspopup="dialog"><i data-icon="history"></i>引用</button>
+                <button id="workflow-open" class="attach-button" type="button" aria-haspopup="dialog"><i data-icon="people"></i>分工</button>
+              </div>
+              <input id="attachment-input" type="file" multiple hidden>
+              <button id="send" type="submit" disabled><i data-icon="send"></i><span>送出</span></button>
+            </div>
+          </form>
           <details id="execution-help"><summary><i data-icon="info"></i>本機執行權限</summary><p>需要主管操作工作目錄時，請以「執行：」開頭並寫明操作內容。</p></details>
           <p id="form-note" role="status" hidden></p>
         </div>
       </section>
     </div>
   </main>
+  <dialog class="login-dialog" id="reference-dialog" aria-labelledby="reference-title">
+    <header><h2 id="reference-title">引用任務紀錄</h2><form method="dialog"><button class="icon-button" aria-label="關閉引用視窗"><i data-icon="close"></i></button></form></header>
+    <label class="search workspace-search"><i data-icon="search"></i><input id="reference-search" type="search" maxlength="120" placeholder="搜尋舊任務的內容" aria-label="搜尋可引用的紀錄"></label>
+    <p id="reference-note" role="status"></p>
+    <div id="reference-results" class="reference-results"></div>
+  </dialog>
+  <dialog class="login-dialog" id="workflow-dialog" aria-labelledby="workflow-title">
+    <header><h2 id="workflow-title">規劃分工</h2><form method="dialog"><button class="icon-button" aria-label="關閉分工視窗"><i data-icon="close"></i></button></form></header>
+    <form id="workflow-form" class="workspace-form">
+      <label>審閱主管
+        <select id="workflow-manager" required><option value="">請選擇主管</option><option value="claude">Claude</option><option value="codex">Codex</option></select>
+      </label>
+      <div id="workflow-steps"></div>
+      <p id="workflow-note" role="status"></p>
+      <div class="workspace-toolbar">
+        <button type="button" class="login-trigger" id="workflow-add">新增工序</button>
+        <button type="submit" class="login-trigger login-primary">套用分工</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog class="login-dialog" id="login-dialog" aria-labelledby="login-title" aria-describedby="login-intro">
+    <header>
+      <h2 id="login-title">登入主管帳號</h2>
+      <form method="dialog"><button class="icon-button" type="submit" aria-label="關閉登入視窗" autofocus><i data-icon="close"></i></button></form>
+    </header>
+    <p id="login-intro">按「開始設定」後，Goose Office 會安裝缺少的工具，依序開啟 Claude 和 ChatGPT 的官方授權頁面。</p>
+    <div class="login-providers">
+      <section class="login-provider" aria-labelledby="claude-login-name">
+        <header><h3 id="claude-login-name"><span class="id-dot clay"></span>Claude</h3><span class="login-status" id="claude-login-status">檢查中</span></header>
+        <p id="claude-login-detail">正在檢查 Claude Code 的本機登入。</p>
+        <details class="manual-login">
+          <summary>手動登入 Claude</summary>
+          <p>在終端機執行指令，再用自己的 Claude 訂閱帳號授權。</p>
+          <div class="login-command"><code>claude auth login</code><button type="button" data-copy-command aria-label="複製 Claude 登入指令">複製</button></div>
+          <a href="https://code.claude.com/docs/en/setup#install-claude-code" target="_blank" rel="noopener noreferrer">安裝 Claude Code</a>
+        </details>
+      </section>
+      <section class="login-provider" aria-labelledby="codex-login-name">
+        <header><h3 id="codex-login-name"><span class="id-dot blue"></span>Codex</h3><span class="login-status" id="codex-login-status">檢查中</span></header>
+        <p id="codex-login-detail">正在檢查 Goose 的 Codex 登入設定。</p>
+        <details class="manual-login">
+          <summary>手動登入 Codex</summary>
+          <p>在專案目錄的終端機執行指令，選 <b>Configure Providers</b> → <b>ChatGPT Codex</b>，再用自己的 ChatGPT 訂閱帳號授權。</p>
+          <div class="login-command"><code>npm run configure -- codex</code><button type="button" data-copy-command aria-label="複製 Codex 登入指令">複製</button></div>
+          <a href="https://goose-docs.ai/docs/getting-started/installation/" target="_blank" rel="noopener noreferrer">安裝 Goose CLI</a>
+        </details>
+      </section>
+    </div>
+    <footer>
+      <div class="login-messages">
+        <p id="login-progress" role="status" hidden></p>
+        <p id="login-feedback" role="status" hidden></p>
+      </div>
+      <div class="login-actions">
+        <button class="login-trigger" type="button" id="login-check"><i data-icon="refresh"></i>重新檢查</button>
+        <button class="login-trigger" type="button" id="login-cancel" hidden>取消設定</button>
+        <button class="login-trigger login-primary" type="button" id="login-start">開始設定</button>
+      </div>
+    </footer>
+  </dialog>
   <script defer src="./markdown-it.js"></script>
   <script type="module" src="./app.js"></script>
 </body>
