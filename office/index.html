@@ -16,6 +16,7 @@
       <nav class="views" aria-label="工作區導覽">
         <button class="nav-action selected" id="floor-nav" aria-current="page"><i data-icon="floor"></i>辦公室</button>
         <button class="nav-action" id="history-nav"><i data-icon="history"></i>任務紀錄<span id="nav-count"></span></button>
+        <button class="nav-action" id="shop-nav"><i data-icon="shop"></i>商店</button>
       </nav>
       <div class="topbar-end">
         <div class="head-stats" role="group" aria-label="辦公室狀態"><span><i class="light"></i>執行中 <b id="active-count">—</b></span><span><i class="light queue"></i>排隊中 <b id="queue-count">—</b></span></div>
@@ -29,23 +30,28 @@
     <header class="page-head" id="history-page-head" hidden>
       <div><h1>任務紀錄</h1><p>查看主管的分工、任務進度與完整對話。</p></div>
     </header>
+    <header class="page-head" id="shop-page-head" hidden>
+      <div><h1>辦公室商店</h1><p>Claude 與 Codex 用掉的額度會變成資金，拿來照顧團隊、佈置辦公室、搬上更高的樓層。</p></div>
+    </header>
     <div class="layout">
       <div class="work-column" id="floor-view">
         <section class="panel floor-card" aria-labelledby="floor-heading">
-          <div class="floor-head"><div class="panel-title"><span class="section-icon"><i data-icon="floor"></i></span><h2 id="floor-heading">辦公區</h2><span class="floor-label">1F</span></div><button type="button" class="life-toggle" id="office-life-toggle" aria-pressed="true"><span class="light"></span>辦公室日常</button></div>
+          <div class="floor-head"><div class="panel-title"><span class="section-icon"><i data-icon="floor"></i></span><h2 id="floor-heading">辦公區</h2><span class="floor-label" id="floor-label">1F</span><span class="floor-name" id="floor-name"></span></div><div class="floor-actions"><button type="button" class="wallet" id="wallet" title="辦公資金與收支" aria-label="辦公資金，查看收支"><i class="coin" aria-hidden="true"></i><b id="wallet-funds">—</b><small id="wallet-rate"></small></button><button type="button" class="shop-trigger" id="shop-open"><i data-icon="shop"></i>商店</button><button type="button" class="life-toggle" id="office-life-toggle" aria-pressed="true"><span class="light"></span>辦公室日常</button></div></div>
           <div class="canvas-wrap">
-            <canvas id="office-canvas" width="512" height="256" role="img" aria-label="Claude 與 Codex 的像素辦公室平面圖。也可在下方團隊成員區選取座位。"></canvas>
+            <canvas id="office-canvas" role="img" aria-label="Claude 與 Codex 的等角視角像素辦公室。拖曳移動、滾輪或雙指縮放，方向鍵與 +、- 也可操作；也可在下方團隊成員區選取座位。"></canvas>
+            <div class="funds-toast" id="funds-toast" role="status" hidden></div>
             <div class="office-dialogue" id="office-dialogue" hidden>
               <div class="dialogue-head"><strong id="dialogue-speaker"></strong><button type="button" id="dialogue-thread" hidden>任務回顧</button></div>
               <p id="dialogue-text"></p>
             </div>
           </div>
-          <div class="floor-foot"><span><i data-icon="pointer"></i><span id="selection-hint">點選角色查看成員</span></span><span class="map-key"><i class="swatch claude"></i>Claude <i class="swatch codex"></i>Codex</span></div>
+          <div class="floor-foot"><span><i data-icon="pointer"></i><span id="selection-hint">點選角色查看成員 · 拖曳移動、滾輪縮放</span></span><span class="map-key"><i class="swatch claude"></i>Claude <i class="swatch codex"></i>Codex</span></div>
         </section>
         <section class="panel member-profile" id="member-profile" aria-labelledby="profile-name" hidden>
           <header><h2 id="profile-name"></h2><span id="profile-trait"></span></header>
           <p id="profile-bio"></p>
           <p id="profile-routine" class="meta"></p>
+          <div class="profile-economy" id="profile-economy"></div>
         </section>
         <section class="team-section" aria-labelledby="team-heading"><div class="list-heading"><h2 id="team-heading">團隊成員</h2><span id="team-count" class="meta"></span></div><div class="teams" id="teams"></div></section>
       </div>
@@ -78,6 +84,15 @@
           <p id="knowledge-note" role="status"></p>
           <div id="knowledge-entries"></div>
         </div>
+      </section>
+      <section class="shop-page" id="shop-view" hidden aria-label="辦公室商店">
+        <div class="panel shop-summary">
+          <canvas id="shop-office-preview" class="shop-office-preview" role="img" aria-label="目前的辦公室"></canvas>
+          <div class="shop-stats" id="shop-stats"></div>
+        </div>
+        <div class="history-tabs shop-tabs" role="group" aria-label="商店分類"><button type="button" data-shop-tab="items" class="on" aria-pressed="true">道具</button><button type="button" data-shop-tab="furniture" aria-pressed="false">家具</button><button type="button" data-shop-tab="perks" aria-pressed="false">福利</button><button type="button" data-shop-tab="floors" aria-pressed="false">樓層</button><button type="button" data-shop-tab="ledger" aria-pressed="false">收支</button></div>
+        <p class="shop-note" id="shop-note" role="status" hidden></p>
+        <div class="shop-body" id="shop-body"></div>
       </section>
       <section class="panel dispatch" aria-labelledby="chat-heading" id="dispatch">
         <header class="chat-head">

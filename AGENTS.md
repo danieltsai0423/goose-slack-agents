@@ -14,11 +14,12 @@
 | 工作 | 程式入口與資料流 |
 | --- | --- |
 | 網頁導覽、交辦、工作紀錄 | [office/index.html](office/index.html)、[office/app.js](office/app.js)、[office/style.css](office/style.css)。辦公室與任務紀錄共用同一個交辦面板，`showView` 只切換視圖，`openThread` 和 `openNew` 才會改變目前對話。追問走 `POST /api/tasks/:id/messages`，返回辦公室要保留對話、草稿和附件。工作紀錄的轉圈由任務狀態控制，遵循 `prefers-reduced-motion`。 |
-| 辦公室動畫 | [office/scene.js](office/scene.js) 繪製角色，[office/life.js](office/life.js) 定義日常行為和回顧。閒置對話從預寫語句和本機已完成的任務摘要組成，全程在瀏覽器執行。 |
+| 辦公室動畫 | 2.5D 等角視角。[office/scene.js](office/scene.js) 組裝畫面、處理拖曳／縮放鏡頭與點選；[office/iso.js](office/iso.js) 是投影、像素多邊形、牆面貼圖與 A* 尋路；[office/iso-layouts.js](office/iso-layouts.js) 定義五層樓的房間格局、座位、日常地點與家具格位，[office/iso-world.js](office/iso-world.js) 把格局轉成可走的網格（`test/office-iso.test.mjs` 驗證每個地點都走得到）；[office/iso-themes.js](office/iso-themes.js) 是地板材質與牆面，[office/iso-props.js](office/iso-props.js) 是家具、桌椅與 Q 版角色。[office/life.js](office/life.js) 定義日常行為和回顧。閒置對話從預寫語句和本機已完成的任務摘要組成，全程在瀏覽器執行。 |
 | 網頁 API 與任務排程 | [src/office-server.mjs](src/office-server.mjs) 提供靜態資源與 API。[src/office-runtime.mjs](src/office-runtime.mjs) 保存交辦、對話、工序成果與工具事件，管理佇列和重啟恢復。瀏覽器讀取 `/api/state`，以 ETag 重用相同快照。 |
 | 分工、引用、記憶與技能 | [office/workspace-tools.js](office/workspace-tools.js) 提供操作介面。[src/office-workflows.mjs](src/office-workflows.mjs) 驗證工序和前置關係，[src/office-history.mjs](src/office-history.mjs) 維護全文索引與引用快照，[src/office-knowledge.mjs](src/office-knowledge.mjs) 管理每位成員的核准狀態。 |
 | 模型、Effort 與工具 | [src/office-models.mjs](src/office-models.mjs) 定義網頁選項和預設值。[src/office-runner.mjs](src/office-runner.mjs) 組合網頁回合上下文。[src/goose.mjs](src/goose.mjs) 啟動並解析模型程序，[src/goose-events.mjs](src/goose-events.mjs) 整理串流文字與工具事件，[src/office-codex.mjs](src/office-codex.mjs) 接原生 Codex CLI。 |
 | 登入與用量 | [src/office-onboarding.mjs](src/office-onboarding.mjs) 管理授權流程，[src/office-auth.mjs](src/office-auth.mjs) 檢查本機登入，[src/office-install.mjs](src/office-install.mjs) 處理缺少的工具。[src/office-usage.mjs](src/office-usage.mjs) 查詢並短暫快取訂閱額度，[office/subscription-usage.js](office/subscription-usage.js) 顯示進度條與重置時間。 |
+| 辦公室經營（資金、情緒、商店、樓層） | 規則與目錄在 [office/economy.js](office/economy.js)，瀏覽器與服務端共用。[src/office-economy.mjs](src/office-economy.mjs) 是唯一記帳者，狀態存於 `STATE_DIR/office-economy.json`；`/api/usage/:id` 每次讀到用量都會交給它入帳，`GET /api/economy` 在頁面開著時最多每 `OFFICE_ECONOMY_SYNC_SECONDS`（預設 300，0 關閉）同步一次。只有最短的額度視窗會計入收入，避免同一份工作重複給錢。[office/furniture.js](office/furniture.js) 畫商店圖示、牆面掛飾、道具與情緒符號，[office/office-shop.js](office/office-shop.js) 是商店與成員卡上的送禮介面。 |
 | 附件與產出 | [src/office-attachments.mjs](src/office-attachments.mjs) 驗證上傳、擷取文字與 PDF 頁面。[src/office-files.mjs](src/office-files.mjs) 提供任務產出下載。前端允許的附件類型與大小上限在 [office/attachment-types.js](office/attachment-types.js)。 |
 | Slack 收訊與接力 | [src/main.mjs](src/main.mjs) 連線 Slack 並以不同 Bot 身分回覆。[src/bridge.mjs](src/bridge.mjs) 處理點名、回合上限與停止，[src/store.mjs](src/store.mjs) 寫入討論串與自主回覆設定。[src/office-slack.mjs](src/office-slack.mjs) 在網頁提供指定頻道的唯讀紀錄。 |
 
@@ -34,7 +35,7 @@
 
 - 沿用 Claude Code 與 ChatGPT 訂閱。Goose 的 `chatgpt_codex` 登入與原生 Codex CLI 登入各自檢查。改模型或 Effort 時，同時驗證網頁選項、服務端接受的值與實際 CLI 傳參。
 - 網頁預設是 Opus 5.5 · Medium 及 GPT-6.2 Sol · XHigh。XHigh 需要原生 Codex CLI 登入和模型能力檢查，缺少時使用 High。瀏覽器會記住已選的模型和 Effort。
-- 圓環面板開啟才查用量。Codex 顯示原生 CLI 帳號回傳的額度。Claude 透過 Claude Agent SDK 的實驗性查詢讀取用量，失敗時面板保留官方用量頁。這條查詢不送模型訊息。若帳號剛切換，先從網頁重新檢查登入再核對用量。
+- 圓環面板開啟，或辦公室頁面開著且距上次同步超過 `OFFICE_ECONOMY_SYNC_SECONDS` 時才查用量。Codex 顯示原生 CLI 帳號回傳的額度。Claude 透過 Claude Agent SDK 的實驗性查詢讀取用量，失敗時面板保留官方用量頁。這條查詢不送模型訊息。若帳號剛切換，先從網頁重新檢查登入再核對用量。
 - `STATE_DIR` 預設 `.data`。`office.sqlite` 保存網頁任務、附件、工序與知識，`office-files/` 保存生成檔，Slack 討論串存於 `<workspace>-<channel>.sqlite`。同一 Office 資料庫只允許一個活躍寫入者。備份時使用 SQLite 一致性備份，或先停止寫入者再備份資料庫和成果目錄。
 - 發送任務時以 `clientId` 去重，追問保留原 `threadId`。服務重啟會接續已留下的佇列與未完成的純對話分工。中斷的主機工序須先檢查工作區，再從分工看板重試，已完成的工序保留成果。
 - `.env`、`.data/`、`.tools/` 與登入資料留在本機。交接時使用假資料和遮蔽過的診斷，GitHub 只提交程式、文件與測試所需的公開範例。

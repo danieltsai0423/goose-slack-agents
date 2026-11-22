@@ -121,6 +121,7 @@ export function createOfficeLife(random = Math.random) {
   let nextAt = null, scene = null, count = 0, lastRecap = -Infinity;
   const seen = new Set();
   const habitCount = {};
+  let furniture = [], furnitureCursor = 0;
   const gap = () => 3400 + random() * 4500;
   function pause() { scene = null; nextAt = null; }
 
@@ -134,6 +135,16 @@ export function createOfficeLife(random = Math.random) {
       for (let i = 0; i < socialScenes.length; i++) {
         const script = socialScenes[socialCursor++ % socialScenes.length];
         if (script.actors.every(id => available.has(id))) return { ...script, kind: 'social' };
+      }
+    }
+    // Every other solo scene, someone goes to use a piece of furniture the office has bought.
+    if (furniture.length && count % 2 === 0) {
+      const entry = furniture[furnitureCursor++ % furniture.length];
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[cursor++ % ids.length];
+        if (!available.has(id)) continue;
+        return { actors: [id], action: '使用' + entry.name, place: entry.place, prop: null,
+          lines: [entry.lines[furnitureCursor % entry.lines.length]], kind: 'solo' };
       }
     }
     for (let i = 0; i < ids.length; i++) {
@@ -183,6 +194,7 @@ export function createOfficeLife(random = Math.random) {
           text: scene.lines[line], kind: scene.kind, threadId: scene.threadId } : null
       };
     },
-    pause
+    pause,
+    setFurniture(list = []) { furniture = list.filter(entry => entry?.place && entry.lines?.length); }
   };
 }

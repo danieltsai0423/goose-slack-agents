@@ -13,6 +13,7 @@ import { officeModelCatalog } from './office-models.mjs';
 import { createOfficeOnboarding } from './office-onboarding.mjs';
 import { createOfficeUsage } from './office-usage.mjs';
 import { openOfficeFolders } from './office-folders.mjs';
+import { openOfficeEconomy } from './office-economy.mjs';
 import { attachmentRequestBytes, readOfficeAttachments, serveOfficeAttachment } from './office-attachments.mjs';
 
 const staticFiles = new Map([
@@ -23,7 +24,12 @@ const staticFiles = new Map([
   ['/workspace-tools.js', ['workspace-tools.js', 'text/javascript']],
   ['/folder-picker.js', ['folder-picker.js', 'text/javascript']],
   ['/access-mode.js', ['access-mode.js', 'text/javascript']],
-  ['/subscription-usage.js', ['subscription-usage.js', 'text/javascript']], ['/style.css', ['style.css', 'text/css']]
+  ['/subscription-usage.js', ['subscription-usage.js', 'text/javascript']], ['/style.css', ['style.css', 'text/css']],
+  ['/economy.js', ['economy.js', 'text/javascript']], ['/pixel-kit.js', ['pixel-kit.js', 'text/javascript']],
+  ['/furniture.js', ['furniture.js', 'text/javascript']], ['/iso.js', ['iso.js', 'text/javascript']],
+  ['/iso-layouts.js', ['iso-layouts.js', 'text/javascript']], ['/iso-world.js', ['iso-world.js', 'text/javascript']],
+  ['/iso-themes.js', ['iso-themes.js', 'text/javascript']], ['/iso-props.js', ['iso-props.js', 'text/javascript']],
+  ['/office-shop.js', ['office-shop.js', 'text/javascript']]
 ]);
 function problem(statusCode, message) { return Object.assign(new Error(message), { statusCode }); }
 function respond(res, status, data) {
@@ -47,9 +53,24 @@ async function readPayload(req, limit = 48000) {
   } catch { throw problem(400, '訊息格式錯誤。'); }
 }
 
-export function createOfficeServer({ runtime, backend, onboarding, slackHistory, artifactDir, folders, usage = createOfficeUsage() }) {
+export function createOfficeServer({
+  runtime, backend, onboarding, slackHistory, artifactDir, folders, usage = createOfficeUsage(),
+  economy = openOfficeEconomy(), economySyncMs = 300000, now = Date.now
+}) {
   const stateNamespace = randomUUID();
-  let stateRevision = 0, stateCache;
+  let stateRevision = 0, stateCache, syncedAt = 0, syncing = null;
+  async function readUsage(id, refresh) {
+    const snapshot = await usage.read(id, refresh);
+    try { economy.ingest(id, snapshot); } catch (error) { console.error('office economy ingest failed:', error.code || error.name); }
+    return snapshot;
+  }
+  // Usage is only polled while an office page asks for the economy, never in the background.
+  function syncEconomy() {
+    if (!economySyncMs || syncing || now() - syncedAt < economySyncMs) return syncing;
+    syncedAt = now();
+    syncing = Promise.allSettled(['claude', 'codex'].map(id => readUsage(id, false))).finally(() => { syncing = null; });
+    return syncing;
+  }
   return http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -112,7 +133,20 @@ export function createOfficeServer({ runtime, backend, onboarding, slackHistory,
       const usageManager = req.method === 'GET' && /^\/api\/usage\/(claude|codex)$/.exec(path)?.[1];
       if (usageManager) {
         if (req.headers['sec-fetch-site'] === 'cross-site') throw problem(403, '請從本機辦公室查詢訂閱用量。');
-        return respond(res, 200, await usage.read(usageManager, searchParams.get('refresh') === '1'));
+        return respond(res, 200, await readUsage(usageManager, searchParams.get('refresh') === '1'));
+      }
+      if (req.method === 'GET' && path === '/api/economy') {
+        if (req.headers['sec-fetch-site'] === 'cross-site') throw problem(403, '請從本機辦公室查詢資金。');
+        if (searchParams.get('sync') === '1') await syncEconomy(); else syncEconomy();
+        return respond(res, 200, economy.snapshot());
+      }
+      const economyAction = req.method === 'POST' && /^\/api\/economy\/(buy|use|place|floor)$/.exec(path)?.[1];
+      if (economyAction) {
+        if (origin !== 'http://' + host) throw problem(403, '請從本機辦公室頁面操作。');
+        const body = await readPayload(req, 4096);
+        const result = economyAction === 'buy' ? economy.buy(body) : economyAction === 'use' ? economy.use(body) :
+          economyAction === 'place' ? economy.place(body) : economy.moveTo(body);
+        return respond(res, 200, result);
       }
       if (req.method === 'GET' && path === '/api/knowledge') {
         const actor = searchParams.get('actor') || 'claude';
@@ -190,6 +224,8 @@ async function start() {
   if (!(seconds >= 10 && seconds <= 900)) throw new Error('請檢查 GOOSE_TURN_TIMEOUT_SECONDS。');
   const hostSeconds = Number(process.env.OFFICE_HOST_TURN_TIMEOUT_SECONDS || 900);
   if (!(hostSeconds >= 60 && hostSeconds <= 3600)) throw new Error('OFFICE_HOST_TURN_TIMEOUT_SECONDS 必須介於 60 到 3600 秒。');
+  const syncSeconds = Number(process.env.OFFICE_ECONOMY_SYNC_SECONDS ?? 300);
+  if (!(syncSeconds === 0 || (syncSeconds >= 60 && syncSeconds <= 86400))) throw new Error('OFFICE_ECONOMY_SYNC_SECONDS 必須是 0 或 60 到 86400 秒。');
   mkdirSync(dir, { recursive: true });
   const history = openSlackHistory(dir, process.env.SLACK_CHANNEL_ID);
   let status, pendingCheck, checkedAt = 0;
@@ -219,7 +255,8 @@ async function start() {
     listWorkflows: thread => runtime.listWorkflows(thread), workflowTeams: id => runtime.workflowTeams(id),
     retryWorkflow: id => runtime.retryWorkflow(id)
   }, backend, onboarding, slackHistory: history, artifactDir,
-  folders: openOfficeFolders({ file: join(dir, 'office-folders.json'), defaultDir: executionDir }) });
+  folders: openOfficeFolders({ file: join(dir, 'office-folders.json'), defaultDir: executionDir }),
+  economy: openOfficeEconomy({ file: join(dir, 'office-economy.json') }), economySyncMs: syncSeconds * 1000 });
   await new Promise((ok, fail) => server.once('error', fail).listen(port, '127.0.0.1', ok));
   try {
     runtime = createOfficeRuntime({ file: join(dir, 'office.sqlite'), runAgent: runOfficeAgent, timeoutMs: seconds * 1000, hostTimeoutMs: hostSeconds * 1000, artifactDir });

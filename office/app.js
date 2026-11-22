@@ -4,6 +4,8 @@ import { mountWorkspaceTools } from './workspace-tools.js';
 import { mountSubscriptionUsage } from './subscription-usage.js';
 import { mountFolderPicker } from './folder-picker.js';
 import { mountAccessMode } from './access-mode.js';
+import { mountOfficeShop } from './office-shop.js';
+import { emotions } from './economy.js';
 const {
   attachmentFileBytes, attachmentImageBytes, attachmentLimit, attachmentTotalBytes, attachmentType, attachmentTypes = {}
 } = await import('./attachment-types.js').catch(() => ({}));
@@ -29,6 +31,7 @@ const icons = {
   moon: '<path d="M21 13a9 9 0 1 1-10-10 7 7 0 0 0 10 10Z"/>',
   folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2l2 2.2h8.8A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  shop: '<path d="M4 9h16l-1.5 11h-13z M8 9V7a4 4 0 0 1 8 0v2"/>',
   shield: '<path d="M12 3 5 6v5.5c0 4.3 3 7.9 7 9.5 4-1.6 7-5.2 7-9.5V6z M12 8v5 M12 16.2h.01"/>'
 };
 const iconMarkup = name => '<svg viewBox="0 0 24 24">' + icons[name] + '</svg>';
@@ -238,6 +241,35 @@ function renderPersonality(staff = workers()) {
   const isParticipant=lifeFrame?.actors.includes(person.id);
   $('profile-routine').textContent=isParticipant?'日常 · '+routineLabel(lifeFrame):
     '常做的事 · '+personality.habits.map(habit=>habit.action).join('、');
+  renderProfileEconomy(person.id);
+}
+let previousProfileEconomy='';
+function renderProfileEconomy(id) {
+  const economy=shop?.economy;
+  const key=JSON.stringify([id,economy?.agents[id],economy?.inventory]);
+  if(key===previousProfileEconomy)return;
+  previousProfileEconomy=key;
+  $('profile-economy').replaceChildren(...(economy?[shop.moodMeters(id),shop.giftButtons(id)]:[]));
+}
+let reaction=null;
+function showReaction(lead,text,point) {
+  clearTimeout(reaction?.timer);
+  const bubble=$('office-dialogue');
+  const actor=workers().find(person=>person.id===lead);
+  bubble.hidden=false;
+  bubble.dataset.team=actor?.manager||'claude';
+  $('dialogue-speaker').textContent=actor?.name||'';
+  $('dialogue-text').textContent=text;
+  $('dialogue-thread').hidden=true;
+  const speech=point&&{...point,actor:lead};
+  positionOfficeDialogue(speech);
+  reaction={speech,timer:setTimeout(()=>{reaction=null;renderOfficeLife(lifeFrame);},3600)};
+}
+// Keeps the speech bubble over its speaker while the map is dragged or zoomed.
+function followSpeech() {
+  const speech=reaction?.speech||lifeFrame?.speech;
+  const anchor=speech?.actor&&scene?.anchorOf?.(speech.actor);
+  if(anchor){Object.assign(speech,anchor);positionOfficeDialogue(speech);}
 }
 function positionOfficeDialogue(speech) {
   if(!speech)return;
@@ -246,7 +278,7 @@ function positionOfficeDialogue(speech) {
   const width=room.clientWidth, height=room.clientHeight;
   if(!width||!height)return;
   const x=width*speech.x, y=height*speech.y;
-  const headY=y-.13*height;
+  const headY=speech.top!=null?height*speech.top:y-.13*height;
   const left=Math.max(6,Math.min(width-bubble.offsetWidth-6,x-bubble.offsetWidth/2));
   const above=headY-bubble.offsetHeight-7;
   const below=above<6;
@@ -258,6 +290,7 @@ function positionOfficeDialogue(speech) {
 }
 function renderOfficeLife(frame) {
   lifeFrame=frame;
+  if(reaction){renderPersonality();return;}
   const bubble=$('office-dialogue');
   const speech=frame?.speech;
   bubble.hidden=!speech;
@@ -278,8 +311,15 @@ function renderLifeToggle() {
   button.setAttribute('aria-pressed',String(lifeEnabled));
   button.title=lifeEnabled?'暫停辦公室日常動畫':'恢復辦公室日常動畫';
 }
+function moodNode(status) {
+  const emotion=status&&emotions[status.emotion];
+  const node=el('i','mood-dot'+(emotion?' '+status.emotion:''));
+  if(emotion){node.title=emotion.label+' · 心情 '+Math.round(status.mood)+' · 精力 '+Math.round(status.energy);node.setAttribute('aria-label',node.title);node.setAttribute('role','img');}
+  else node.hidden=true;
+  return node;
+}
 function renderTeams() {
-  const staff = workers(), sig=JSON.stringify([staff,selected]);
+  const staff = workers(), moodOf=id=>shop?.economy?.agents[id], sig=JSON.stringify([staff,selected,staff.map(person=>moodOf(person.id)?.emotion)]);
   if(sig!==previousTeams){
     previousTeams=sig;
     const cards = ['claude','codex'].map(id=>{
@@ -290,13 +330,13 @@ function renderTeams() {
       lead.setAttribute('aria-pressed',String(selected===id));
       const name=el('span','manager-name');name.append(el('strong','',manager.name),el('em','','主管'));
       lead.title=personalities[id].trait;
-      lead.append(avatar(id),name,statusNode(manager.status));card.append(lead);
+      lead.append(avatar(id),name,moodNode(moodOf(id)),statusNode(manager.status));card.append(lead);
       const list=el('div','worker-list');
       staff.filter(p=>p.manager===id && p.id!==id).forEach(person=>{
         const b=el('button','worker'+(selected===person.id?' chosen':''));
         b.dataset.employee=person.id;b.title=[person.name,person.role,personalities[person.id]?.trait,readable(person.status)].filter(Boolean).join(' · ');
         b.setAttribute('aria-label',b.title);b.setAttribute('aria-pressed',String(selected===person.id));
-        b.append(el('i','worker-dot'+(active.has(person.status)?' busy':'')),el('span','',person.name),el('span','worker-role',person.role));list.append(b);
+        b.append(el('i','worker-dot'+(active.has(person.status)?' busy':'')),el('span','',person.name),el('span','worker-role',person.role),moodNode(moodOf(person.id)));list.append(b);
       });
       card.append(list);return card;
     });
@@ -304,9 +344,10 @@ function renderTeams() {
     $('team-count').textContent=staff.filter(person=>person.kind==='manager').length+' 位主管 · '+staff.filter(person=>person.kind==='worker').length+' 位員工';
   }
   const person=staff.find(p=>p.id===selected);
-  $('selection-hint').textContent=person ? person.name+' · '+(person.kind==='manager'?'主管':titleFor(person.manager)+' 組 / '+person.role)+' · '+readable(person.status) : '點選角色查看成員';
+  $('selection-hint').textContent=person ? person.name+' · '+(person.kind==='manager'?'主管':titleFor(person.manager)+' 組 / '+person.role)+' · '+readable(person.status) : '點選角色查看成員 · 拖曳移動、滾輪縮放';
   renderPersonality(staff);
-  const data={agents:staff,selected,lifeEnabled,tasks:state.tasks.map(({threadId,manager,workerId,status,createdAt,updatedAt,text})=>
+  const economy=shop?.economy;
+  const data={agents:staff,selected,lifeEnabled,economy:economy&&{floor:economy.floor,placed:economy.placed,agents:economy.agents},tasks:state.tasks.map(({threadId,manager,workerId,status,createdAt,updatedAt,text})=>
     ({threadId,manager,workerId,status,createdAt,updatedAt,brief:summarizeBrief(text)}))};
   const sceneKey=JSON.stringify(data);
   if(scene && previousScene!==sceneKey){
@@ -701,8 +742,11 @@ function showView(next) {
   view=next;
   $('floor-view').hidden=next!=='floor';$('history-view').hidden=next!=='history';
   $('history-page-head').hidden=next!=='history';
+  $('shop-view').hidden=$('shop-page-head').hidden=next!=='shop';
+  $('dispatch').hidden=next==='shop';
+  document.querySelector('.layout').classList.toggle('single',next==='shop');
   $('chat-new').hidden=next!=='floor';$('chat-return').hidden=next!=='history';
-  for(const [key,id] of [['floor','floor-nav'],['history','history-nav']]){
+  for(const [key,id] of [['floor','floor-nav'],['history','history-nav'],['shop','shop-nav']]){
     const b=$(id); b.classList.toggle('selected',key===next);
     if(key===next)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   }
@@ -862,7 +906,7 @@ loginCheck.onclick=async()=>{
     loginCheck.disabled=false;
   }
 };
-$('brand').onclick=$('floor-nav').onclick=()=>showView('floor');$('history-nav').onclick=()=>showView('history');
+$('brand').onclick=$('floor-nav').onclick=()=>showView('floor');$('history-nav').onclick=()=>showView('history');$('shop-nav').onclick=()=>shop.open();
 for(const b of document.querySelectorAll('[data-source]'))b.onclick=()=>{source=b.dataset.source;renderList();};
 $('threads').onclick=e=>{const b=e.target.closest('[data-thread]');if(b)openThread(b.dataset.thread,source==='slack');};
 $('teams').onclick=e=>{const b=e.target.closest('[data-employee]');if(b)selectEmployee(b.dataset.employee);};
@@ -942,9 +986,15 @@ const workspaceTools=mountWorkspaceTools({
   openThread, openTask(id) {const task=state.tasks.find(item=>item.id===id); if(task)openThread(task.threadId);},
   openNew, when
 });
-try{scene=createOfficeScene($('office-canvas'),{onSelect:selectEmployee,onLife:renderOfficeLife});}catch(error){console.error('Office scene',error);$('selection-hint').textContent='可在下方選取團隊成員';}
+try{scene=createOfficeScene($('office-canvas'),{onSelect:selectEmployee,onLife:renderOfficeLife,onView:followSpeech});}catch(error){console.error('Office scene',error);$('selection-hint').textContent='可在下方選取團隊成員';}
+var shop=mountOfficeShop({
+  el, getSelected:()=>selected, getStaff:()=>workers(),
+  onChange(){ if(view==='floor'||scene)renderTeams(); },
+  onOpen(){ if(view!=='shop'){showView('shop');window.scrollTo({top:0});} },
+  onReact(targets,item,lead,line){ const point=scene?.react?.(targets,item); showReaction(lead,line,point); previousProfileEconomy=''; renderTeams(); }
+});
 if('ResizeObserver' in window){
-  new ResizeObserver(()=>positionOfficeDialogue(lifeFrame?.speech)).observe($('office-canvas'));
+  new ResizeObserver(()=>positionOfficeDialogue(reaction?.speech||lifeFrame?.speech)).observe($('office-canvas'));
 }
 $('office-life-toggle').onclick=()=>{
   lifeEnabled=!lifeEnabled;
