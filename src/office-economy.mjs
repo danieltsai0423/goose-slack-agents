@@ -1,11 +1,29 @@
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import {
   FUNDS_PER_PERCENT, STARTING_FUNDS, consumedSince, emotionOf, floorById, floors, furnitureById, incomeMultiplier,
-  itemById, itemEffect, moraleMultiplier, perkById, rates, settle, slotById, staffIds, strain
+  firstFloorFor, fits, itemById, itemEffect, moraleMultiplier, perkById, rates, settle, slotById, slotsFor, staffIds, strain
 } from '../office/economy.js';
 
 function problem(statusCode, message) { return Object.assign(new Error(message), { statusCode }); }
 const clamp = value => Math.round(Math.min(100, Math.max(0, value)) * 10) / 10;
+
+// Keep only placements that exist and fit on this floor, then put stored pieces into any free spot that fits.
+// Anything left over stays owned but in storage until the office has room for it.
+function arrange(state) {
+  const spots = slotsFor(state.floor);
+  const kept = {};
+  for (const [slot, id] of Object.entries(state.placed || {})) {
+    const target = spots.find(spot => spot.id === slot);
+    if (target && fits(furnitureById[id], target) && state.owned.includes(id)) kept[slot] = id;
+  }
+  const placedIds = new Set(Object.values(kept));
+  for (const id of state.owned) {
+    if (placedIds.has(id)) continue;
+    const free = spots.find(spot => !kept[spot.id] && fits(furnitureById[id], spot));
+    if (free) { kept[free.id] = id; placedIds.add(id); }
+  }
+  state.placed = kept;
+}
 
 function fresh(now) {
   return {
@@ -27,7 +45,10 @@ function load(file, now) {
       agents: Object.fromEntries(staffIds.map(id => [id, data.agents?.[id] ?? base.agents[id]])),
       owned: Array.isArray(data.owned) ? data.owned.filter(id => furnitureById[id]) : [],
       perks: Array.isArray(data.perks) ? data.perks.filter(id => perkById[id]) : [],
-      floorsOwned: Array.isArray(data.floorsOwned) ? data.floorsOwned.filter(id => floorById[id]) : [1]
+      floorsOwned: Array.isArray(data.floorsOwned) ? data.floorsOwned.filter(id => floorById[id]) : [1],
+      // Older saves placed furniture in spots this floor may no longer have.
+      placed: Object.fromEntries(Object.entries(data.placed || {}).filter(([slot, id]) => fits(furnitureById[id], slotById[slot]) &&
+        slotsFor(floorById[data.floor] ? data.floor : 1).some(spot => spot.id === slot)))
     };
   } catch (error) {
     if (error.code !== 'ENOENT') console.error('office economy reset:', error.name);
@@ -102,10 +123,11 @@ export function openOfficeEconomy({ file = null, now = Date.now } = {}) {
         if (!entry) throw problem(400, '找不到這件家具。');
         if (state.owned.includes(id)) throw problem(409, '已經擁有這件家具。');
         if (Math.max(...state.floorsOwned) < entry.floor) throw problem(409, `需要先解鎖 ${entry.floor}F。`);
+        if (!firstFloorFor(entry)) throw problem(409, '這棟大樓沒有放得下它的位置。');
         spend(entry.price, '購買' + entry.name);
         state.owned.push(id);
-        const free = Object.keys(slotById).find(slot => slotById[slot].kind === entry.kind && !state.placed[slot]);
-        if (free) state.placed[free] = id;
+        const free = slotsFor(state.floor).find(slot => fits(entry, slot) && !state.placed[slot.id]);
+        if (free) state.placed[free.id] = id;
       } else if (kind === 'perk') {
         const perk = perkById[id];
         if (!perk) throw problem(400, '找不到這項福利。');
@@ -141,9 +163,10 @@ export function openOfficeEconomy({ file = null, now = Date.now } = {}) {
       if (id && !state.owned.includes(id)) throw problem(409, '尚未擁有這件家具。');
       for (const [key, value] of Object.entries(state.placed)) if (value === id) delete state.placed[key];
       if (slot) {
-        const target = slotById[slot];
-        if (!target) throw problem(400, '找不到這個位置。');
+        const target = slotsFor(state.floor).find(spot => spot.id === slot);
+        if (!target) throw problem(400, '這層樓沒有這個位置。');
         if (id && furnitureById[id].kind !== target.kind) throw problem(400, target.kind === 'wall' ? '這是牆面位置。' : '這是地面位置。');
+        if (id && !fits(furnitureById[id], target)) throw problem(400, target.size === 2 ? '這是大型設施的位置。' : '這件需要大型空位。');
         if (id) state.placed[slot] = id; else delete state.placed[slot];
       }
       save();
@@ -160,6 +183,7 @@ export function openOfficeEconomy({ file = null, now = Date.now } = {}) {
         state.floorsOwned.push(floor);
       }
       state.floor = floor;
+      arrange(state);
       save();
       return view({ type: 'floor', floor });
     },

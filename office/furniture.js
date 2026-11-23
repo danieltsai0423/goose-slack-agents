@@ -175,6 +175,90 @@ const floorSprites = {
     box(x - 4, b - 14, 6, 1, '#8fc6f0');
     box(x - 14, b - 2, 28, 2, '#b8c0c8'); box(x - 15, b - 12, 2, 4, '#5ac8e0');
   },
+  claw(p, x, b) {
+    const { box, trim } = p;
+    shadow(p, x, b, 22);
+    trim(x - 9, b - 8, 18, 8, '#9a2a5a', '#e0508a');
+    trim(x - 9, b - 22, 18, 14, '#9a2a5a', '#d8eef8'); box(x - 9, b - 23, 18, 2, '#e0508a');
+    for (const [dx, c] of [[-6, '#f2c94c'], [-2, '#7ac0f0'], [2, '#f0a1b8'], [5, '#7af07a']]) box(x + dx, b - 11, 3, 3, c);
+    box(x, b - 21, 1, 5, '#8a9094'); box(x - 2, b - 16, 5, 1, '#8a9094'); box(x - 2, b - 15, 1, 2, '#8a9094'); box(x + 2, b - 15, 1, 2, '#8a9094');
+    box(x - 4, b - 6, 3, 2, '#f2c94c'); box(x + 3, b - 6, 2, 2, '#c43a3a');
+  },
+  hoops(p, x, b) {
+    const { box, trim, oval } = p;
+    shadow(p, x, b, 30);
+    trim(x - 12, b - 8, 24, 8, '#1f4a8a', '#2f6ac9'); box(x - 11, b - 8, 22, 2, '#e08a3a');
+    trim(x - 9, b - 22, 18, 12, '#b8c0c4', '#eef2f4'); box(x - 3, b - 18, 6, 4, '#c43a3a'); box(x - 2, b - 17, 4, 2, '#eef2f4');
+    oval(x, b - 13, 4, 1, '#e05a2a'); box(x - 3, b - 12, 1, 3, '#d8dde0'); box(x + 2, b - 12, 1, 3, '#d8dde0');
+    oval(x + 8, b - 25, 2, 2, '#e08a3a'); box(x + 7, b - 25, 3, 1, '#8a4a1a');
+  },
+  'dance-pad'(p, x, b) {
+    const { box, trim } = p;
+    shadow(p, x, b, 34);
+    trim(x - 15, b - 4, 30, 4, '#1a1a2a', '#2a2a3a');
+    for (const [dx, c] of [[-12, '#e0508a'], [-5, '#40c0f0'], [2, '#7af07a'], [9, '#f2c94c']]) box(x + dx, b - 3, 5, 2, c);
+    trim(x - 10, b - 22, 20, 18, '#2a2260', '#3a2f7a'); box(x - 7, b - 19, 14, 9, '#40c0f0'); box(x - 5, b - 17, 3, 3, '#f2c94c'); box(x + 2, b - 15, 3, 3, '#e0508a');
+  },
+  vr(p, x, b) {
+    const { box, oval } = p;
+    shadow(p, x, b, 36);
+    oval(x, b - 3, 16, 3, '#2a2f3a'); oval(x, b - 4, 13, 2, '#3a5a8a');
+    for (const dx of [-15, 14]) { box(x + dx, b - 22, 2, 19, '#4a4e58'); box(x + dx - 1, b - 24, 4, 3, '#7af0f0'); }
+    box(x - 6, b - 14, 12, 6, '#2a2f3a'); box(x - 5, b - 13, 10, 2, '#40c0f0'); box(x - 7, b - 12, 1, 3, '#2a2f3a'); box(x + 6, b - 12, 1, 3, '#2a2f3a');
+  },
+  racing(p, x, b) {
+    const { box, trim, oval } = p;
+    shadow(p, x, b, 36);
+    trim(x - 17, b - 5, 34, 5, '#1a1a1e', '#2a2a2e');
+    trim(x - 16, b - 22, 14, 17, '#1a1a1e', '#26303a'); box(x - 14, b - 20, 10, 9, '#5a9ad0'); box(x - 12, b - 14, 6, 1, '#f2c94c');
+    oval(x - 3, b - 11, 3, 3, '#3a3a40'); oval(x - 3, b - 11, 1, 1, '#c0c6c8');
+    trim(x + 2, b - 18, 6, 13, '#7a1f1f', '#c43a3a'); trim(x + 2, b - 9, 13, 4, '#7a1f1f', '#c43a3a');
+  },
+  pingpong(p, x, b) {
+    const { box, poly } = p;
+    shadow(p, x, b, 38);
+    box(x - 16, b - 9, 2, 9, '#3a3a40'); box(x + 14, b - 9, 2, 9, '#3a3a40'); box(x - 8, b - 7, 2, 7, '#2a2a30'); box(x + 6, b - 7, 2, 7, '#2a2a30');
+    poly([[x - 18, b - 10], [x + 10, b - 10], [x + 18, b - 16], [x - 10, b - 16]], '#2f6ab0');
+    poly([[x - 18, b - 10], [x + 10, b - 10], [x + 10, b - 9], [x - 18, b - 9]], '#1c446e');
+    poly([[x - 4, b - 10], [x - 3, b - 10], [x + 4, b - 16], [x + 3, b - 16]], '#e8f2f8');
+    box(x - 1, b - 16, 2, 4, '#f2f2f2'); box(x - 14, b - 21, 4, 4, '#c43a3a'); box(x - 13, b - 17, 1, 2, '#8a5a3a'); box(x + 6, b - 22, 2, 2, '#ffffff');
+  },
+  'air-hockey'(p, x, b) {
+    const { box, poly, oval } = p;
+    shadow(p, x, b, 38);
+    poly([[x - 18, b - 6], [x + 10, b - 6], [x + 18, b - 14], [x - 10, b - 14]], '#3a6ac9');
+    poly([[x - 16, b - 7], [x + 9, b - 7], [x + 15, b - 13], [x - 9, b - 13]], '#eef4f8');
+    poly([[x - 2, b - 7], [x - 1, b - 7], [x + 4, b - 13], [x + 3, b - 13]], '#e05a5a');
+    box(x - 18, b - 6, 28, 6, '#2a2f3a'); box(x + 10, b - 6, 8, 2, '#2a2f3a');
+    oval(x - 9, b - 10, 2, 1, '#e05a5a'); oval(x + 9, b - 11, 2, 1, '#e0b03a'); oval(x + 2, b - 10, 2, 1, '#1a1a2a');
+  },
+  pool(p, x, b) {
+    const { box, poly } = p;
+    shadow(p, x, b, 38);
+    box(x - 15, b - 8, 3, 8, '#5a3a22'); box(x + 12, b - 8, 3, 8, '#5a3a22');
+    poly([[x - 19, b - 8], [x + 11, b - 8], [x + 19, b - 16], [x - 11, b - 16]], '#6a4428');
+    poly([[x - 16, b - 9], [x + 10, b - 9], [x + 16, b - 15], [x - 10, b - 15]], '#2f7a4a');
+    for (const [dx, dy, c] of [[4, -12, '#f2c94c'], [7, -11, '#c43a3a'], [6, -13, '#2f58a8'], [9, -12, '#5a2a6a'], [-7, -11, '#f8f8f2']]) box(x + dx, b + dy, 2, 2, c);
+    poly([[x - 18, b - 18], [x - 17, b - 19], [x - 6, b - 12], [x - 7, b - 11]], '#c49a6a');
+  },
+  karaoke(p, x, b) {
+    const { box, trim } = p;
+    shadow(p, x, b, 38);
+    trim(x - 18, b - 5, 36, 5, '#2a1a30', '#4a2e52');
+    trim(x - 12, b - 22, 24, 15, '#1a1420', '#2a2040'); box(x - 10, b - 20, 20, 11, '#7a4ac0'); box(x - 8, b - 15, 16, 1, '#ffffff'); box(x - 6, b - 12, 12, 1, '#f2c94c');
+    trim(x - 18, b - 15, 5, 10, '#0a0a0e', '#1a1a1e'); trim(x + 13, b - 15, 5, 10, '#0a0a0e', '#1a1a1e');
+    box(x + 7, b - 18, 1, 13, '#8a8a92'); box(x + 6, b - 20, 3, 2, '#2a2a2e');
+    box(x - 16, b - 24, 2, 2, '#e0508a'); box(x + 15, b - 25, 2, 2, '#40c0f0');
+  },
+  boardgame(p, x, b) {
+    const { box, oval } = p;
+    shadow(p, x, b, 34);
+    box(x - 1, b - 9, 3, 9, '#5a4030'); oval(x, b - 1, 6, 1, '#3a2a20');
+    oval(x, b - 11, 16, 5, '#7a5230'); oval(x, b - 12, 15, 4, '#a8743a');
+    oval(x, b - 12, 9, 3, '#efe3c4'); for (const dx of [-6, -2, 2, 6]) box(x + dx, b - 13 + (dx % 4 ? 1 : 0), 2, 1, '#c9b48a');
+    box(x - 5, b - 17, 2, 4, '#c43a3a'); box(x + 3, b - 16, 2, 3, '#2f58a8'); box(x - 1, b - 15, 2, 3, '#3f8a4a');
+    box(x + 9, b - 18, 3, 3, '#ffffff'); box(x + 10, b - 17, 1, 1, '#1a1a1a');
+  },
   sculpture(p, x, b) {
     const { box, trim, oval } = p;
     shadow(p, x, b, 22);

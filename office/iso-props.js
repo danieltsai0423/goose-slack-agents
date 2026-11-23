@@ -338,7 +338,7 @@ const ink = '#2f3436';
 // fix, water, talk, listen, cheer, stretch, look. z lifts the whole figure (sitting on furniture).
 export function drawCharacter(p, variant, sx, sy, {
   facing = 'sw', seated = false, busy = false, tick = 0, emotion = 'calm', lead = false, team = 'claude',
-  prop = null, action = null, z = 0, hop = 0
+  prop = null, action = null, z = 0, hop = 0, emoteBusy = false
 } = {}) {
   const c = people[variant % people.length];
   const act = action || (busy && seated ? 'type' : 'idle');
@@ -351,12 +351,12 @@ export function drawCharacter(p, variant, sx, sy, {
   const sway = act === 'dance' ? [0, 1, 0, -1][t % 4] : 0;
   const X = (dx, w = 1) => (m > 0 ? sx + dx : sx - dx - w) + sway;
   const B = (dx, y, w, h, color) => p.box(X(dx, w), y, w, h, color);
-  const sitting = seated || act === 'sit' || act === 'piano';
+  const sitting = seated || act === 'sit' || act === 'piano' || act === 'drive';
   const crouch = act === 'pet' ? 3 : 0;
   // Shoulders rise and fall slowly when still; a one-pixel bob on the passing frames when walking.
   const breathe = !walking && !busy && t % 8 >= 4 ? 1 : 0;
   const bob = walking ? [0, 1, 0, 1][frame] : 0;
-  const droop = emotion === 'tired' || emotion === 'sad' ? 1 : 0;
+  const droop = act === 'doze' ? 2 : emotion === 'tired' || emotion === 'sad' ? 1 : 0;
   const lift = seated ? -6 : sitting ? -2 : 0;
   const base = sy - z - hop;
   if (!seated && z === 0) p.oval(sx + sway, sy, 6, 2, hop ? '#00000020' : '#00000030');
@@ -391,6 +391,13 @@ export function drawCharacter(p, variant, sx, sy, {
       B(ux, sh - 8, 2, 9, ink); B(ux + (out > 0 ? 0 : 1), sh - 6, 1, 5, c.shirt); B(ux, sh - 10, 2, 2, c.skin);
       return [ux, sh - 11];
     }
+    if (shape === 'wave') {
+      // Raised hand that rocks side to side.
+      const ux = (side === 'near' ? 6 : -8) + (t % 2 ? out : 0);
+      B(ux, sh - 7, 2, 8, ink); B(ux + (out > 0 ? 0 : 1), sh - 5, 1, 4, c.shirt); B(ux - (t % 2 ? 0 : out), sh - 10, 3, 3, c.skin);
+      return [ux, sh - 11];
+    }
+    if (shape === 'chin') { B(dx - out, sh, 2, 4, ink); B(dx - out * 2, sh - 2, 2, 2, c.skin); return [dx - out * 2, sh - 2]; }
     if (shape === 'forward') { B(dx, sh + 1, 2, 3, ink); B(dx + out * 2, sh + 1, 2, 2, ink); B(dx + out * 2 + inner, sh + 1, 1, 1, c.skin); return [dx + out * 2, sh]; }
     if (shape === 'mouth') { B(dx - out, sh - 2, 2, 5, ink); B(dx - out * 2, sh - 3, 2, 2, c.skin); return [dx - out * 2, sh - 4]; }
     if (shape === 'reach') { B(dx, sh + 2, 2, 7, ink); B(dx + out, sh + 7, 2, 2, c.skin); return [dx + out, sh + 8]; }
@@ -413,7 +420,18 @@ export function drawCharacter(p, variant, sx, sy, {
     case 'fix': near = phase ? 'forward' : 'reach'; held = held || 'tools'; break;
     case 'water': near = 'forward'; held = held || 'water'; break;
     case 'talk': near = phase ? 'forward' : 'down'; far = t % 6 < 2 ? 'forward' : 'down'; break;
-    case 'cheer': case 'stretch': near = 'up'; far = 'up'; break;
+    case 'cheer': case 'stretch': case 'yawn': near = 'up'; far = 'up'; break;
+    case 'idea': near = 'up'; break;
+    case 'wave': near = 'wave'; break;
+    case 'think': near = 'chin'; break;
+    case 'phone': near = 'forward'; far = 'forward'; held = 'phone'; break;
+    case 'groove': notes = true; break;
+    case 'paddle': near = t % 2 ? 'forward' : 'swingA'; held = 'paddle'; break;
+    case 'cue': near = 'forward'; far = 'forward'; held = 'cue'; break;
+    case 'sing': near = 'mouth'; far = phase ? 'up' : 'down'; held = 'mic'; notes = true; break;
+    case 'shoot': near = t % 6 < 2 ? 'up' : 'forward'; far = t % 6 < 2 ? 'up' : 'forward'; break;
+    case 'vr': near = t % 4 < 2 ? 'up' : 'forward'; far = t % 4 < 2 ? 'forward' : 'up'; break;
+    case 'drive': near = 'forward'; far = 'forward'; break;
     default: if (held) near = 'forward';
   }
   arm('far', far);
@@ -422,10 +440,14 @@ export function drawCharacter(p, variant, sx, sy, {
   if (held === 'snack') { B(hx, hy - 2, 3, 2, '#f2c94c'); B(hx + 1, hy - 3, 1, 1, '#c43a3a'); }
   if (held === 'book' || held === 'note') B(hx - 1, hy - 2, 4, 3, held === 'book' ? '#a95a4f' : '#fcf0c9');
   if (held === 'tools') B(hx, hy - 1, 3, 1, '#b7cbca');
+  if (held === 'paddle') { B(hx, hy - 3, 3, 3, '#c43a3a'); B(hx + 1, hy, 1, 2, '#8a5a3a'); }
+  if (held === 'mic') B(hx, hy - 1, 2, 2, '#2a2a2e');
+  if (held === 'cue') for (let i = 0; i < 9; i++) p.box(X(hx - 2 + i, 1), hy + 1 + Math.floor(i / 3), 1, 1, i < 2 ? '#e8e4da' : '#a8743a');
+  if (held === 'phone') { B(hx - 1, hy - 3, 3, 4, '#2c3440'); B(hx, hy - 2, 1, 2, t % 5 ? '#9fe0ff' : '#ffffff'); }
   if (held === 'water') { B(hx, hy - 2, 3, 3, '#668b9d'); if (phase) B(hx + 3, hy + 1, 1, 2, '#8fc6f0'); }
 
   // Head: nods while listening, droops when tired or sad.
-  const nod = act === 'listen' && t % 6 < 2 ? 1 : 0;
+  const nod = act === 'listen' && t % 6 < 2 || act === 'groove' && t % 2 || act === 'phone' || act === 'doze' && t % 8 < 4 ? 1 : 0;
   const head = body - 18 + droop + nod + breathe;
   p.box(X(-4, 8), head - 2, 8, 1, ink); p.box(X(-5, 10), head - 1, 10, 1, ink);
   p.box(X(-6, 12), head, 12, 8, ink); p.box(X(-5, 10), head + 8, 10, 1, ink);
@@ -435,13 +457,15 @@ export function drawCharacter(p, variant, sx, sy, {
     B(-4, head + 2, 8, 1, c.hair);
     if (variant === 2 || variant === 5) { B(-5, head + 3, 1, 6, c.hair); B(4, head + 3, 1, 6, c.hair); }
     const eyeY = head + 5;
-    const closed = (t * 7) % 29 === 0 || emotion === 'tired' || act === 'piano' && phase;
+    const closed = (t * 7) % 29 === 0 || emotion === 'tired' || act === 'piano' && phase || act === 'doze' || act === 'yawn' || act === 'groove' && t % 4 < 2;
     const glad = act === 'cheer' || emotion === 'elated';
     if (variant === 1 || variant === 4) { B(-3, eyeY - 1, 3, 3, '#3f5053'); B(1, eyeY - 1, 3, 3, '#3f5053'); B(-2, eyeY, 1, 1, '#c8e0e8'); B(2, eyeY, 1, 1, '#c8e0e8'); }
     else if (glad) { B(-3, eyeY, 2, 1, '#2f2a2a'); B(1, eyeY, 2, 1, '#2f2a2a'); }
     else { B(-2, eyeY, 1, closed ? 1 : 2, '#2f2a2a'); B(2, eyeY, 1, closed ? 1 : 2, '#2f2a2a'); }
-    const mouthOpen = act === 'talk' && phase || act === 'cheer' || (act === 'eat' || act === 'drink') && phase;
-    if (mouthOpen) B(-1, head + 7, 2, 2, '#7d3a32');
+    const mouthOpen = act === 'talk' && phase || act === 'cheer' || act === 'idea' || (act === 'eat' || act === 'drink') && phase;
+    if (act === 'vr') { B(-5, head + 3, 10, 3, '#2a2f3a'); B(-4, head + 4, 8, 1, t % 2 ? '#7af0f0' : '#40c0f0'); }
+    if (act === 'yawn' || act === 'sing' && phase) B(-1, head + 6, 3, 3, '#7d3a32');
+    else if (mouthOpen) B(-1, head + 7, 2, 2, '#7d3a32');
     else if (emotion === 'happy' || emotion === 'elated') B(-1, head + 8, 3, 1, '#a86a5a');
     else if (emotion === 'sad' || emotion === 'grumpy') B(-1, head + 8, 2, 1, '#7d5446');
     else B(0, head + 8, 1, 1, '#a86a5a');
@@ -458,7 +482,7 @@ export function drawCharacter(p, variant, sx, sy, {
   if (hearts) { const hx2 = sx + 6, hy2 = head - 4 - (t % 3); p.box(hx2, hy2, 2, 1, '#ff7a9a'); p.box(hx2 + 3, hy2, 2, 1, '#ff7a9a'); p.box(hx2, hy2 + 1, 5, 1, '#ff7a9a'); p.box(hx2 + 1, hy2 + 2, 3, 1, '#ff7a9a'); p.box(hx2 + 2, hy2 + 3, 1, 1, '#ff7a9a'); }
   if (sweat) p.box(X(6), head + 2 + (t % 4), 1, 2, '#8fc6f0');
   if (act === 'cheer' && t % 2) { p.box(sx - 9, head - 2, 1, 1, '#fff1c4'); p.box(sx + 9, head - 4, 1, 1, '#fff1c4'); }
-  if (emotion !== 'calm' && !walking && !notes && !hearts && act !== 'cheer') drawEmotion(p, emotion, sx, head - 2, tick);
+  if (emotion !== 'calm' && !walking && !notes && !hearts && act !== 'cheer' && !emoteBusy) drawEmotion(p, emotion, sx, head - 2, tick);
   return { top: head - 2 };
 }
 
@@ -472,4 +496,30 @@ function drawLying(p, c, sx, sy, tick) {
   const z = tick % 12;
   if (z < 9) { const zx = sx - 4 + Math.floor(z / 3) * 3, zy = y - 9 - z; p.box(zx, zy, 3, 1, '#c8d4e8'); p.box(zx + 1, zy + 1, 1, 1, '#c8d4e8'); p.box(zx, zy + 2, 3, 1, '#c8d4e8'); }
   return { top: y - 8 };
+}
+
+// Small speech-bubble icons above a head: thinking dots, Z's, a light bulb, a note, a question or a heart.
+export function drawEmote(p, kind, x, y, tick) {
+  if (!kind) return;
+  const bx = Math.round(x) - 5, by = Math.round(y) - 12 - (tick % 8 < 4 ? 0 : 1);
+  p.box(bx, by, 11, 8, ink); p.box(bx + 1, by + 1, 9, 6, '#fffaf0'); p.box(bx + 3, by + 8, 2, 1, ink); p.box(bx + 4, by + 7, 1, 1, '#fffaf0');
+  const X = bx + 2, Y = by + 2, dot = (dx, dy, color, w = 1, h = 1) => p.box(X + dx, Y + dy, w, h, color);
+  if (kind === 'dots' || kind === 'chat') {
+    const lit = tick % 6, col = kind === 'chat' ? '#5f8fd0' : '#4a4446';
+    for (let i = 0; i < 3; i++) dot(i * 3, 2, i <= lit % 4 ? col : '#d8d0c0', 2, 2);
+  } else if (kind === 'zz') {
+    dot(0, 0, '#6f86b8', 3, 1); dot(1, 1, '#6f86b8'); dot(0, 2, '#6f86b8', 3, 1);
+    dot(4, 2, '#93a7d4', 3, 1); dot(5, 3, '#93a7d4'); dot(4, 4, '#93a7d4', 3, 1);
+  } else if (kind === 'idea') {
+    dot(2, 0, '#f2c94c', 3, 3); dot(1, 1, '#f2c94c', 5, 1); dot(3, 3, '#b8963c', 1, 1); dot(2, 3, '#9a9a9a', 3, 1);
+    if (tick % 2) { dot(0, 0, '#fff1c4'); dot(6, 0, '#fff1c4'); }
+  } else if (kind === 'note') {
+    dot(4, 0, '#d46a8a', 1, 4); dot(5, 0, '#d46a8a', 2, 1); dot(2, 3, '#d46a8a', 3, 2);
+  } else if (kind === 'question') {
+    dot(2, 0, '#5f8fd0', 3, 1); dot(5, 1, '#5f8fd0'); dot(4, 2, '#5f8fd0'); dot(3, 2, '#5f8fd0'); dot(3, 4, '#5f8fd0');
+  } else if (kind === 'heart') {
+    dot(1, 0, '#ff7a9a', 2, 1); dot(4, 0, '#ff7a9a', 2, 1); dot(0, 1, '#ff7a9a', 7, 1); dot(1, 2, '#ff7a9a', 5, 1); dot(2, 3, '#ff7a9a', 3, 1); dot(3, 4, '#ff7a9a');
+  } else if (kind === 'coffee') {
+    dot(1, 1, '#f2eadb', 4, 3); dot(1, 1, '#8a5a3a', 4, 1); dot(5, 2, '#f2eadb'); if (tick % 2) dot(2, 0, '#c8c0b0'); else dot(3, 0, '#c8c0b0');
+  }
 }

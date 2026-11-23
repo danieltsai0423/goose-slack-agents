@@ -1,5 +1,5 @@
 import {
-  FUNDS_PER_PERCENT, emotions, favorites, floorById, floors, furniture, furnitureById, itemById, itemEffect, items, perks, slots
+  FUNDS_PER_PERCENT, emotions, favorites, firstFloorFor, fits, floorById, floors, furniture, furnitureById, itemById, itemEffect, items, perks, slotsFor
 } from './economy.js';
 import { painter } from './pixel-kit.js';
 import { drawFurniture, drawItem, drawPerk, drawWallArt, drawWallArtLive } from './furniture.js';
@@ -7,7 +7,9 @@ import { drawCharacter } from './iso-props.js';
 import { paintFloorPreview, variants } from './scene.js';
 
 const money = value => '$' + Math.round(value || 0).toLocaleString('en-US');
-const slotNames = { f1: '左前 · 1', f2: '左前 · 2', f3: '左前 · 3', f4: '右前 · 1', f5: '右前 · 2', f6: '右前 · 3', w1: '左牆', w2: '右牆' };
+const slotName = id => ({ f: '地面', g: '大型', w: '牆面' })[id[0]] + ' · ' + id.slice(1);
+const playersText = { 2: '雙人', 3: '三人' };
+const capacityText = floor => { const c = floor.capacity; return `地面 ${c.small} · 大型 ${c.large} · 牆面 ${c.wall}`; };
 const signed = value => (value > 0 ? '+' : '') + value;
 const effectText = entry => [
   entry.mood ? `心情 ${signed(entry.mood)}` : '', entry.energy ? `精力 ${signed(entry.energy)}` : ''
@@ -374,20 +376,28 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
   }
 
   /* ---------- 家具 ---------- */
+  const firstLargeFloor = () => floors.find(floor => floor.capacity.large > 0)?.id;
   function layoutSummary() {
     const board = el('div', 'slot-board');
-    for (const [kind, label] of [['wall', '牆面'], ['floor', '地面']]) {
-      const row = el('div', 'slot-row ' + kind);
+    const here = slotsFor(economy.floor);
+    for (const [kind, label, size] of [['wall', '牆面', 1], ['floor', '地面', 1], ['floor', '大型', 2]]) {
+      const row = el('div', 'slot-row ' + kind + (size === 2 ? ' large' : ''));
+      const spots = here.filter(slot => slot.kind === kind && slot.size === size);
+      if (!spots.length && size === 2) {
+        row.append(el('span', 'slot-row-label', label), el('span', 'meta', `這層沒有大型空位 · ${firstLargeFloor()}F 起可擺雙人遊戲桌`));
+        board.append(row);
+        continue;
+      }
       row.append(el('span', 'slot-row-label', label));
       const cells = el('div', 'slot-cells');
-      for (const slot of slots.filter(slot => slot.kind === kind)) {
+      for (const slot of spots) {
         const entry = furnitureById[economy.placed[slot.id]];
         const cell = el('span', 'slot-cell' + (entry ? ' filled' : ''));
         const well = el('span', 'slot-well');
         if (entry) well.append(furnitureIcon(entry, 1));
         else well.append(el('span', 'slot-plus', '+'));
         const caption = el('span', 'slot-caption');
-        caption.append(el('small', '', slotNames[slot.id]), el('b', '', entry?.name || '空位'));
+        caption.append(el('small', '', slotName(slot.id)), el('b', '', entry?.name || '空位'));
         cell.append(well, caption);
         cells.append(cell);
       }
@@ -401,9 +411,11 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     const unlocked = Math.max(...economy.floorsOwned);
     const isOwned = entry => economy.owned.includes(entry.id);
     const filters = {
-      all: () => true, floor: entry => entry.kind === 'floor', wall: entry => entry.kind === 'wall',
+      all: () => true, games: entry => Boolean(entry.players), floor: entry => entry.kind === 'floor', wall: entry => entry.kind === 'wall',
       available: entry => !isOwned(entry) && entry.floor <= unlocked, owned: isOwned
     };
+    const here = slotsFor(economy.floor);
+    const fitsHere = entry => here.some(slot => fits(entry, slot));
     const list = furniture.filter(filters[furnitureFilter]).toSorted((a, b) => a.floor - b.floor || a.price - b.price);
     const grid = el('div', 'shop-grid');
     for (const entry of list) {
@@ -413,16 +425,21 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
       if (locked) foot.append(priceTag(entry.price, { afford: false }), el('span', 'meta', `${entry.floor}F 以上解鎖`));
       else if (!owned) {
         const afford = economy.funds >= entry.price;
+        const roomy = here.some(slot => fits(entry, slot) && !economy.placed[slot.id]);
         foot.append(priceTag(entry.price, { afford }),
-          button('購買', () => buy('furniture', entry, `${entry.name}已送達辦公室。`), { tone: 'buy', disabled: !afford }));
+          button('購買', () => buy('furniture', entry, roomy ? `${entry.name}已送達辦公室。` : `${entry.name}已送達，這層放不下，先收進倉庫。`), { tone: 'buy', disabled: !afford }));
+        if (!fitsHere(entry)) foot.append(el('span', 'meta warn', `這層放不下 · ${firstFloorFor(entry)}F 起有位置`));
+        else if (!roomy) foot.append(el('span', 'meta warn', '位置已滿，買了先放倉庫'));
+      } else if (!fitsHere(entry)) {
+        foot.append(priceTag(0, { free: '倉庫中' }), el('span', 'meta warn', `需要${entry.size === 2 ? '大型空位' : '位置'} · ${firstFloorFor(entry)}F 起`));
       } else {
         const current = Object.entries(economy.placed).find(([, id]) => id === entry.id)?.[0] || '';
         const select = el('select');
         select.setAttribute('aria-label', entry.name + '的擺放位置');
         const stored = el('option', '', '收進倉庫'); stored.value = ''; select.append(stored);
-        for (const slot of slots.filter(slot => slot.kind === entry.kind)) {
+        for (const slot of here.filter(slot => fits(entry, slot))) {
           const holder = furnitureById[economy.placed[slot.id]];
-          const option = el('option', '', slotNames[slot.id] + (holder && holder.id !== entry.id ? `（換下${holder.name}）` : ''));
+          const option = el('option', '', slotName(slot.id) + (holder && holder.id !== entry.id ? `（換下${holder.name}）` : ''));
           option.value = slot.id; option.selected = slot.id === current;
           select.append(option);
         }
@@ -431,18 +448,19 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
         label.append(select);
         foot.append(priceTag(0, { free: current ? '使用中' : '倉庫中' }), label);
       }
-      const corner = el('span', 'kind-badge', `${entry.kind === 'wall' ? '牆面' : '地面'} · ${entry.floor}F`);
+      const corner = el('span', 'kind-badge', [entry.kind === 'wall' ? '牆面' : entry.size === 2 ? '大型 2×2' : '地面', playersText[entry.players], entry.floor + 'F'].filter(Boolean).join(' · '));
       grid.append(shopCard({ key: 'furniture:' + entry.id, list: furniture, entry, icon: furnitureIcon(entry, entry.kind === 'wall' ? 3 : 2),
         art: entry.kind, state: locked ? 'locked' : owned ? 'owned' : '', corner,
         effect: effectLine(entry, { unit: '/時', extra: passiveExtras(entry) }), foot }));
     }
     if (!list.length) grid.append(el('p', 'shop-empty', '這個分類目前沒有家具。'));
     const count = key => furniture.filter(filters[key]).length;
+    const stored = economy.owned.filter(id => !Object.values(economy.placed).includes(id)).length;
     return [
-      sectionHead('目前擺設', '擺出來才會生效 · 地面 6 格、牆面 2 格，搬家時一起帶走'),
+      sectionHead('目前擺設', `擺出來才會生效 · 這層 ${capacityText(floorById[economy.floor])}` + (stored ? ` · 倉庫 ${stored} 件` : '') + ' · 搬家時自動重新擺放'),
       layoutSummary(),
-      sectionHead('家具目錄', '持續影響全員的心情與精力，閒暇時大家會去使用'),
-      chips([['all', '全部', count('all')], ['floor', '地面', count('floor')], ['wall', '牆面', count('wall')],
+      sectionHead('家具目錄', '持續影響全員的心情與精力 · 遊樂設施會讓主管與員工相約一起玩'),
+      chips([['all', '全部', count('all')], ['games', '遊樂設施', count('games')], ['floor', '地面', count('floor')], ['wall', '牆面', count('wall')],
         ['available', '可購買', count('available')], ['owned', '已擁有', count('owned')]], furnitureFilter,
       key => { furnitureFilter = key; render(); }, '家具篩選'),
       grid
@@ -505,7 +523,8 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
       const heading = el('div', 'floor-title');
       heading.append(el('strong', '', floor.name), el('em', '', floor.style));
       const perksLine = el('p', 'shop-effect');
-      perksLine.append(el('span', 'stat-part tag income', `收入 ×${floor.income}`), el('span', 'stat-part tag', floor.perk));
+      perksLine.append(el('span', 'stat-part tag income', `收入 ×${floor.income}`), el('span', 'stat-part tag', floor.perk),
+        el('span', 'stat-part tag', `${floor.size} 格 · ${capacityText(floor)}`));
       info.append(heading, el('p', 'shop-desc', floor.blurb), perksLine);
       const actions = el('div', 'card-foot');
       if (current) actions.append(priceTag(0, { free: '✓ 進駐中' }));

@@ -1,10 +1,12 @@
+import { createBehaviors, errandPhase } from './behavior.js';
+import { facilities } from './iso-facilities.js';
 import { createOfficeLife } from './life.js';
 import { furnitureById, itemById } from './economy.js';
 import { drawBurst, drawItem } from './furniture.js';
 import { blitWall, createProjection, isoPainter, rasterFloor } from './iso.js';
 import { planFloor } from './iso-world.js';
 import { materials, paintWall, themes } from './iso-themes.js';
-import { drawCharacter, drawChair, drawDesk, furnitureIso, props as propDrawers, shade, tone } from './iso-props.js';
+import { drawCharacter, drawChair, drawDesk, drawEmote, furnitureIso, props as propDrawers, shade, tone } from './iso-props.js';
 
 // A 2.5D isometric office. The floor, back walls and rugs are drawn once per floor; desks, props,
 // partitions and people are depth-sorted every frame into a world-sized canvas, which the camera
@@ -20,9 +22,26 @@ const activities = {
   piano: { action: 'piano' }, arcade: { action: 'play' }, foosball: { action: 'play' }, record: { action: 'dance' }, cat: { action: 'pet' },
   'espresso-bar': { action: 'drink', prop: 'cup' }, water: { action: 'drink', prop: 'water' }, fridge: { action: 'eat' }, popcorn: { action: 'eat' },
   bonsai: { action: 'fix', prop: 'tools' }, 'floor-lamp': { action: 'read', prop: 'book' }, telescope: { action: 'look' },
-  aquarium: { action: 'look' }, fountain: { action: 'look' }, trophy: { action: 'look' }, sculpture: { action: 'look' }
+  aquarium: { action: 'look' }, fountain: { action: 'look' }, trophy: { action: 'look' }, sculpture: { action: 'look' },
+  claw: { action: 'play', emote: 'heart' }, hoops: { action: 'shoot' }, 'dance-pad': { action: 'dance', onto: true, z: 3, facing: 'sw' },
+  vr: { action: 'vr', onto: true, z: 1, facing: 'sw' }, racing: { action: 'drive', onto: true, z: 4, facing: 'ne' },
+  // Group games: one role per spot around the table, in the order the layout lists the spots.
+  pingpong: { roles: ['paddle', 'paddle'] }, 'air-hockey': { roles: ['paddle', 'paddle'] }, pool: { roles: ['cue', 'cue'], turns: true },
+  karaoke: { roles: ['sing', 'cheer', 'cheer'], emotes: [null, null, 'note'], stage: true }, boardgame: { roles: ['play', 'think', 'play'], emotes: [null, 'dots', null] }
 };
+for (const spec of Object.values(activities)) if (spec.roles) spec.action ??= spec.roles[0];
 const propActions = { cup: 'drink', book: 'read', note: 'write', tools: 'fix', water: 'water' };
+// What someone does when an errand takes them to one of the named spots.
+const placeActions = {
+  board: { action: 'write', prop: 'note', emote: 'idea' }, boardRight: { action: 'write', prop: 'note' },
+  windowLeft: { action: 'look' }, windowRight: { action: 'look', emote: 'dots' },
+  plantLeft: { action: 'water', prop: 'water' }, shelf: { action: 'read', prop: 'book' }, shelfLeft: { action: 'read', prop: 'book', emote: 'question' },
+  rack: { action: 'fix', prop: 'tools' }, workbench: { action: 'fix', prop: 'tools' },
+  loungeLeft: { action: 'drink', prop: 'cup', emote: 'coffee' }, loungeRight: { action: 'drink', prop: 'cup' }
+};
+const turn = { sw: 'se', se: 'sw', ne: 'nw', nw: 'ne' };
+const spinCycle = ['sw', 'se', 'ne', 'nw'];
+const msPerTile = 430;
 const drinks = new Set(['tea', 'espresso', 'cocoa', 'boba', 'energy']);
 const foods = new Set(['macaron', 'pizza', 'icecream', 'fruit', 'ramen']);
 
@@ -100,8 +119,8 @@ function buildFloor(floorId, placed = {}) {
     if (drawer) objects.push({ key: prop.x + prop.w / 2 + prop.y + prop.d / 2, draw: (q, tick) => drawer(q, prop, theme, tick, L.wallH) });
   }
   for (const item of plan.furniture) {
-    const drawer = furnitureIso[item.id];
-    if (drawer) objects.push({ key: item.x + item.y + 1, draw: (q, tick) => drawer(q, item.x, item.y, tick) });
+    const facility = facilities[item.id], drawer = facility || furnitureIso[item.id];
+    if (drawer) objects.push({ key: item.x + item.y + item.size, draw: (q, tick, live) => drawer(q, item.x, item.y, tick, Boolean(live?.active.has(item.slot))) });
   }
   return { plan, layout: L, theme, proj, base, objects, painter: p };
 }
@@ -125,7 +144,7 @@ function along(points, progress) {
   return { x: last[0], y: last[1], facing: facingOf(last[0] - prev[0], last[1] - prev[1], 'sw') };
 }
 
-function drawFrame(world, floor, { agents, poses, moods, selected, hovered, tick, effects, now, deskProp, looks = new Map() }) {
+function drawFrame(world, floor, { agents, poses, moods, selected, hovered, tick, effects, now, deskProp, looks = new Map(), active = new Set() }) {
   const ctx = world.getContext('2d');
   ctx.clearRect(0, 0, world.width, world.height);
   ctx.drawImage(floor.base, 0, 0);
@@ -147,12 +166,13 @@ function drawFrame(world, floor, { agents, poses, moods, selected, hovered, tick
         const look = looks.get(id) || {};
         const held = look.prop ?? pose?.prop ?? deskProp(id, agent);
         const { top } = drawCharacter(q, variants[id], Math.round(sx), Math.round(sy), {
-          facing: pose ? pose.facing : seat.facing, seated: !pose, busy, tick,
+          facing: look.facing ?? (pose ? pose.facing : seat.facing), seated: !pose, busy, tick,
+          emoteBusy: Boolean(look.emote ?? (pose?.moving ? null : pose?.emote)),
           emotion: moods[id] || 'calm', lead: id === 'claude' || id === 'codex', team: teamOf(id), prop: held,
           action: look.action ?? (pose?.moving ? 'walk' : pose?.action ?? (!pose && held ? propActions[held] : null)),
           z: look.z ?? pose?.z ?? 0, hop: look.hop || 0
         });
-        anchors.set(id, { x: sx, y: sy, top });
+        anchors.set(id, { x: sx, y: sy, top, emote: look.emote ?? (pose?.moving ? null : pose?.emote) });
         if (selected === id || hovered === id) {
           const col = teamOf(id) === 'claude' ? '#f2aa81' : '#91b8ef';
           q.poly([[sx - 3, top - 6], [sx + 4, top - 6], [sx + 0.5, top - 2]], col);
@@ -162,7 +182,8 @@ function drawFrame(world, floor, { agents, poses, moods, selected, hovered, tick
     });
   }
   list.sort((a, b) => a.key - b.key);
-  for (const item of list) item.draw(p, tick);
+  for (const item of list) item.draw(p, tick, { active });
+  for (const anchor of anchors.values()) if (anchor.emote) drawEmote(p, anchor.emote, anchor.x, anchor.top, tick);
   for (const effect of effects) {
     const anchor = anchors.get(effect.id);
     if (!anchor) continue;
@@ -186,6 +207,8 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
   const routes = new Map();
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const ambient = createOfficeLife();
+  const behaviors = createBehaviors();
+  let acts = new Map();
   const camera = { x: floor.proj.width / 2, y: floor.proj.height / 2, zoom: 0, fit: 1, cssW: 1, cssH: 1, dpr: 1 };
 
   function rebuild() {
@@ -273,7 +296,113 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
       : life.place === 'board' || life.place === 'boardRight' ? 'write' : propActions[life.prop] || 'look';
     return { x: end[0], y: end[1], facing: place[2] || 'sw', prop: talking ? null : life.prop, action };
   }
-  // Short overrides: reacting to a gift, or stretching at the desk now and then.
+  /* ----- ambient errands ----- */
+  function pathFor(id, tile) {
+    const key = id + '>' + tile.join(',');
+    if (!routes.has(key)) {
+      const seat = floor.plan.seats[id];
+      const path = seat && floor.plan.grid.path(seat.tile, tile);
+      routes.set(key, path ? [seat.point, ...path.map(([x, y]) => [x + 0.5, y + 0.5])] : null);
+    }
+    return routes.get(key);
+  }
+  // A free tile beside a colleague's chair to stand on while chatting.
+  function besideSeat(id) {
+    const seat = floor.plan.seats[id];
+    if (!seat) return null;
+    const seatTiles = new Set(Object.values(floor.plan.seats).map(s => s.tile.join(',')));
+    const [x, y] = seat.tile;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (floor.plan.grid.isBlocked(nx, ny) || seatTiles.has(nx + ',' + ny) || floor.plan.grid.walled(x, y, nx, ny)) continue;
+      return [nx, ny];
+    }
+    return null;
+  }
+  function errandsFor(id, working) {
+    const L = floor.layout, list = [];
+    const visit = other => {
+      const tile = besideSeat(other);
+      if (!tile) return;
+      const [px, py] = floor.plan.seats[other].point;
+      list.push({ key: 'seat:' + other, tile, visit: other, action: 'talk', emote: 'chat', facing: facingOf(px - tile[0] - 0.5, py - tile[1] - 0.5, 'sw') });
+    };
+    if (working) {
+      // A lead with delegated work walks over to check on the person doing it.
+      if (agents.get(id)?.status !== 'delegated') return list;
+      for (const task of tasks) {
+        if (task.manager === id && task.workerId && task.workerId !== id && workingStates.has(task.status) && agents.has(task.workerId)) visit(task.workerId);
+      }
+      return list;
+    }
+    const lifePlace = frame?.place;
+    for (const [name, [x, y, facing]] of Object.entries(L.places)) {
+      if (name !== lifePlace) list.push({ key: name, tile: [x, y], facing, ...(placeActions[name] || { action: 'look' }) });
+    }
+    for (const [slot, item] of Object.entries(placed)) {
+      const spot = L.slots[slot];
+      if (!spot || !furnitureById[item] || 'slot:' + slot === lifePlace) continue;
+      const spec = activities[item] || { action: 'look' };
+      if (spec.roles) {
+        const spots = spot.spots || [spot.use];
+        const group = spec.roles.slice(0, spots.length).map((action, i) => ({
+          key: `slot:${slot}#${i}`, tile: spots[i].slice(0, 2), facing: spots[i][2], slot, action, turns: spec.turns, emote: spec.emotes?.[i] ?? null,
+          stage: spec.stage && i === 0
+        }));
+        // Popular: list games twice so people pick them more often than a plant.
+        for (let copy = 0; copy < 2; copy++) list.push({ key: 'slot:' + slot, group, min: 2 });
+        continue;
+      }
+      list.push({ key: 'slot:' + slot, tile: spot.use.slice(0, 2), facing: spot.use[2], slot, ...spec, emote: spec.action === 'look' ? 'heart' : spec.emote });
+    }
+    for (const other of agents.keys()) if (other !== id && floor.plan.seats[other]) visit(other);
+    return list;
+  }
+  function measureErrand(id, dest) {
+    const route = pathFor(id, dest.tile);
+    if (!route || route.length < 2) return null;
+    let length = 0;
+    for (let i = 1; i < route.length; i++) length += Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]);
+    return Math.max(900, length * msPerTile);
+  }
+  function errandPose(id, act, now) {
+    const route = pathFor(id, act.dest.tile);
+    if (!route) return null;
+    const { phase, progress } = errandPhase(act, now);
+    if (phase === 'out') return { ...along(route, progress), moving: true };
+    if (phase === 'back') return { ...along(route.toReversed(), progress), moving: true };
+    const end = route.at(-1), dest = act.dest;
+    const playing = now >= (act.playAt ?? act.start + act.walk);
+    let action = playing ? dest.action : null;
+    // Pool: players take turns at the table.
+    if (playing && dest.turns) action = Math.floor((now - act.playAt) / 3200) % 2 === dest.index % 2 ? dest.action : 'look';
+    const base = { facing: dest.facing || 'sw', action, prop: playing ? dest.prop : null, emote: playing ? dest.emote : 'dots', arrived: now - act.start - act.walk };
+    if (dest.onto && !playing) return { ...base, x: end[0], y: end[1] };
+    if (dest.stage && playing && floor.layout.slots[dest.slot]) {
+      // The singer steps up onto the middle of the stage and faces the room.
+      const [ax, ay] = floor.layout.slots[dest.slot].at;
+      return { ...base, x: ax + 1.1, y: ay + 1.2, z: 4, facing: 'sw' };
+    }
+    if (dest.onto && dest.slot && floor.layout.slots[dest.slot]) {
+      const [ax, ay] = floor.layout.slots[dest.slot].at;
+      return { ...base, x: ax + 0.5, y: ay + 0.55, z: dest.z };
+    }
+    return { ...base, x: end[0], y: end[1] };
+  }
+  // A fidget at the desk becomes an action, a facing and maybe an emote bubble.
+  function fidgetLook(id, act, now) {
+    const seat = floor.plan.seats[id];
+    const elapsed = now - act.start;
+    switch (act.action) {
+      case 'look': return { facing: Math.floor(elapsed / 900 + act.seed * 4) % 3 === 1 ? turn[seat.facing] : seat.facing };
+      case 'spin': return { facing: spinCycle[(spinCycle.indexOf(seat.facing) + Math.floor(elapsed / 170)) % 4] };
+      case 'sip': return { action: 'drink', prop: 'cup' };
+      case 'read': return { action: 'read', prop: 'book' };
+      default: return { action: act.action, emote: act.emote };
+    }
+  }
+
+  // Short overrides: reacting to a gift, a fidget at the desk, chatting with a visitor or waving at a passer-by.
   function looksFor(now) {
     const looks = new Map();
     for (const effect of effects) {
@@ -284,9 +413,29 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
       looks.set(effect.id, { action, hop: action === 'cheer' ? Math.round(Math.abs(Math.sin(progress * Math.PI * 5)) * 3) : 0,
         prop: action === 'drink' ? 'cup' : action === 'eat' ? 'snack' : null });
     }
-    for (const [id, agent] of agents) {
-      if (looks.has(id) || poses.has(id) || agent.status !== 'idle' || reduced.matches) continue;
-      if ((now / 1000 + variants[id] * 11) % 47 < 1.6) looks.set(id, { action: 'stretch' });
+    for (const [id, act] of acts) {
+      if (looks.has(id) || poses.has(id) || act.kind !== 'fidget' || !floor.plan.seats[id]) continue;
+      looks.set(id, fidgetLook(id, act, now));
+    }
+    for (const [id, pose] of poses) {
+      const act = acts.get(id);
+      const host = act?.kind === 'errand' && act.dest.visit;
+      if (host && !pose.moving && !poses.has(host) && floor.plan.seats[host]) {
+        // Take turns talking; a busy colleague keeps typing and just looks up with a question mark.
+        const [hx, hy] = floor.plan.seats[host].point;
+        const busy = workingStates.has(agents.get(host)?.status);
+        const hostTalks = !busy && pose.arrived % 5600 > 2800;
+        if (hostTalks) { pose.action = 'listen'; pose.emote = null; }
+        looks.set(host, busy ? { emote: 'question' }
+          : { facing: facingOf(pose.x - hx, pose.y - hy, 'sw'), action: hostTalks ? 'talk' : 'listen', emote: hostTalks ? 'chat' : null });
+        continue;
+      }
+      if (!pose.moving) continue;
+      for (const [other, seat] of Object.entries(floor.plan.seats)) {
+        if (other === id || poses.has(other) || looks.get(other)?.emote || !agents.has(other) || workingStates.has(agents.get(other).status)) continue;
+        const [sx, sy] = seat.point;
+        if (Math.hypot(pose.x - sx, pose.y - sy) < 1.4) looks.set(other, { action: 'wave', facing: facingOf(pose.x - sx, pose.y - sy, seat.facing) });
+      }
     }
     return looks;
   }
@@ -301,17 +450,39 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     if (dead) return;
     const now = performance.now();
     const animateLife = lifeEnabled && visible && !document.hidden;
-    frame = ambient.step(now, roster, tasks, animateLife);
+    const ids = [...agents.keys()].filter(id => floor.plan.seats[id]);
+    acts = behaviors.step(now, {
+      ids, working: new Set(ids.filter(id => workingStates.has(agents.get(id).status))),
+      blocked: new Set(frame?.actors || []), enabled: animateLife && !reduced.matches,
+      tired: new Set(ids.filter(id => moods[id] === 'tired' || moods[id] === 'sad')),
+      happy: new Set(ids.filter(id => moods[id] === 'happy' || moods[id] === 'elated')),
+      maxWalkers: Math.max(1, Math.min(3, Math.floor(ids.length / 2))), errands: errandsFor, measure: measureErrand
+    });
+    // People out on an errand sit out the scripted scenes until they are back at their desk.
+    const lifeRoster = roster.map(agent => acts.get(agent.id)?.kind === 'errand' ? { ...agent, status: 'away' } : agent);
+    frame = ambient.step(now, lifeRoster, tasks, animateLife);
     poses = new Map();
     for (const [index, id] of (frame?.actors || []).entries()) {
       const pose = poseFor(id, frame, index);
       if (pose) poses.set(id, pose);
     }
+    for (const [id, act] of acts) {
+      if (act.kind !== 'errand' || poses.has(id)) continue;
+      const pose = errandPose(id, act, now);
+      if (pose) poses.set(id, pose);
+    }
+    tick = Math.floor(now / 150);
+    // Facilities animate only while someone is playing them.
+    const active = new Set();
+    for (const act of acts.values()) {
+      if (act.kind === 'errand' && act.dest.slot && errandPhase(act, now).phase === 'stay' && now >= (act.playAt ?? 0)) active.add(act.dest.slot);
+    }
+    if (frame?.place?.startsWith('slot:') && frame.elapsed >= frame.walk && frame.elapsed < frame.endsAt - frame.start - frame.walk) active.add(frame.place.slice(5));
     effects = effects.filter(effect => now - effect.start < effect.duration);
     const liveTick = reduced.matches ? 0 : tick;
     anchors = drawFrame(world, floor, {
-      agents, poses, moods, selected, hovered, tick: liveTick, effects, now, looks: looksFor(now),
-      deskProp: (id, agent) => animateLife && !reduced.matches && agent.status === 'idle' && !frame?.actors.includes(id) &&
+      agents, poses, moods, selected, hovered, tick: liveTick, effects, now, looks: looksFor(now), active,
+      deskProp: (id, agent) => animateLife && !reduced.matches && agent.status === 'idle' && !frame?.actors.includes(id) && !acts.has(id) &&
         (now + variants[id] * 2090) % (5100 + variants[id] * 1140) < 1250 ? deskProps[variants[id]] : null
     });
     const phase = frame && (frame.elapsed < frame.walk ? 'out' : frame.elapsed >= frame.endsAt - frame.start - frame.walk ? 'back' : 'activity');
@@ -457,7 +628,8 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     if (!lifeEnabled && reduced.matches && !effects.length) return;
     const busy = [...agents.values()].some(a => workingStates.has(a.status));
     const moving = !reduced.matches && [...poses.values()].some(pose => pose.moving);
-    timer = setTimeout(() => { if (!reduced.matches) tick++; render(); schedule(); }, effects.length ? 60 : moving ? 95 : frame ? 180 : busy ? 350 : 500);
+    const lively = !reduced.matches && (acts.size || frame || busy);
+    timer = setTimeout(() => { render(); schedule(); }, effects.length ? 60 : moving ? 80 : lively ? 150 : 500);
   }
   function refreshVisibility() { render(); schedule(); }
   const observer = typeof IntersectionObserver === 'function' ? new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; refreshVisibility(); }) : null;

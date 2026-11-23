@@ -33,8 +33,9 @@ export function planFloor(id, placed = {}) {
   const furniture = [];
   for (const [slot, spot] of Object.entries(layout.slots)) {
     if (!placed[slot]) continue;
-    occupy(spot.at[0], spot.at[1], 'slot ' + slot);
-    furniture.push({ slot, id: placed[slot], x: spot.at[0], y: spot.at[1] });
+    const size = spot.size || 1;
+    for (let dx = 0; dx < size; dx++) for (let dy = 0; dy < size; dy++) occupy(spot.at[0] + dx, spot.at[1] + dy, 'slot ' + slot);
+    furniture.push({ slot, id: placed[slot], x: spot.at[0], y: spot.at[1], size });
   }
   const roomAt = (x, y) => layout.rooms.find(room => x >= room.x && y >= room.y && x < room.x + room.w && y < room.y + room.h) || null;
   return { id: layouts[id] ? id : 1, layout, grid, seats, props, furniture, roomAt, issues };
@@ -45,7 +46,7 @@ export function destinations(plan) {
   const { layout } = plan;
   return [
     ...Object.entries(layout.places).map(([name, [x, y]]) => ({ name, tile: [x, y] })),
-    ...Object.entries(layout.slots).map(([slot, spot]) => ({ name: 'slot:' + slot, tile: spot.use.slice(0, 2) })),
+    ...Object.entries(layout.slots).flatMap(([slot, spot]) => (spot.spots || [spot.use]).map((use, i) => ({ name: `slot:${slot}#${i}`, tile: use.slice(0, 2) }))),
     ...Object.entries(plan.seats).map(([id, seat]) => ({ name: 'seat:' + id, tile: seat.tile }))
   ];
 }

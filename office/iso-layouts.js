@@ -1,4 +1,4 @@
-// Room plans for the five isometric floors. Coordinates are tiles: x runs down-right, y down-left,
+// Room plans for the seven isometric floors. Coordinates are tiles: x runs down-right, y down-left,
 // and the back walls stand on x = 0 (west) and y = 0 (north).
 //
 // desks:  id → [x, y, dir]. dir 'x' spans (x, y)…(x+1, y) and is worked from (x, y-1), facing down-left;
@@ -7,7 +7,9 @@
 //         at-1 and at, for y in [from, to); doors are the y values left open. axis 'y' mirrors it.
 // north / west: decals on the back walls, positioned by u (tiles from the corner).
 // places: where the daily routines in life.js walk to: [x, y, facing] (facing ne / nw / se / sw).
-// slots:  where bought furniture goes; each has the tile it stands on and the tile used to reach it.
+// slots:  where bought furniture goes; each has the tile it stands on and the tile used to reach it. Which ids a
+//         floor has is set by its capacity in economy.js. Large slots (g…) cover 2×2 tiles from `at` and list
+//         `spots` around them for each player; `use` is the first spot.
 
 export const layouts = {
   1: {
@@ -26,7 +28,7 @@ export const layouts = {
       { kind: 'shelf', u: 10, len: 2 }, { kind: 'clock', u: 12.6 }
     ],
     west: [
-      { kind: 'board', u: 1, len: 2 }, { kind: 'window', u: 3.5, len: 2.5 }, { kind: 'slot', id: 'w2', u: 6.6 },
+      { kind: 'board', u: 1, len: 2 }, { kind: 'window', u: 3.5, len: 2.5 }, { kind: 'window', u: 6.3, len: 1.2 },
       { kind: 'door', u: 8, len: 2 }
     ],
     desks: {
@@ -48,8 +50,7 @@ export const layouts = {
       loungeLeft: [9, 3, 'se'], loungeRight: [12, 3, 'nw']
     },
     slots: {
-      f1: { at: [9, 0], use: [9, 1, 'ne'] }, f2: { at: [13, 4], use: [12, 4, 'se'] }, f3: { at: [9, 10], use: [9, 9, 'sw'] },
-      f4: { at: [13, 10], use: [12, 10, 'se'] }, f5: { at: [13, 5], use: [12, 5, 'se'] }, f6: { at: [8, 10], use: [7, 10, 'se'] }
+      f1: { at: [9, 0], use: [9, 1, 'ne'] }, f2: { at: [13, 4], use: [12, 4, 'se'] }, f3: { at: [9, 10], use: [9, 9, 'sw'] }
     }
   },
 
@@ -88,7 +89,8 @@ export const layouts = {
     },
     slots: {
       f1: { at: [15, 4], use: [14, 4, 'se'] }, f2: { at: [11, 11], use: [12, 11, 'nw'] }, f3: { at: [15, 11], use: [15, 10, 'sw'] },
-      f4: { at: [10, 1], use: [9, 1, 'se'] }, f5: { at: [10, 11], use: [9, 11, 'se'] }, f6: { at: [7, 11], use: [7, 10, 'sw'] }
+      f4: { at: [10, 1], use: [9, 1, 'se'] }, f5: { at: [10, 11], use: [9, 11, 'se'] },
+      g1: { at: [8, 9], size: 2, use: [7, 10, 'se'], spots: [[7, 10, 'se'], [10, 9, 'nw'], [8, 11, 'ne']] }
     }
   },
 
@@ -127,11 +129,53 @@ export const layouts = {
     },
     slots: {
       f1: { at: [8, 7], use: [8, 8, 'ne'] }, f2: { at: [11, 12], use: [10, 12, 'se'] }, f3: { at: [7, 12], use: [7, 11, 'sw'] },
-      f4: { at: [17, 12], use: [16, 12, 'se'] }, f5: { at: [17, 7], use: [16, 7, 'se'] }, f6: { at: [9, 9], use: [9, 10, 'ne'] }
+      f4: { at: [17, 12], use: [16, 12, 'se'] }, f5: { at: [17, 7], use: [16, 7, 'se'] }, f6: { at: [0, 7], use: [1, 7, 'nw'] },
+      g1: { at: [9, 8], size: 2, use: [8, 9, 'se'], spots: [[8, 9, 'se'], [11, 8, 'nw'], [9, 10, 'ne']] }
     }
   },
 
   4: {
+    w: 20, h: 14, wallH: 50, theme: 'neon',
+    rooms: [
+      { name: '開發區', x: 0, y: 0, w: 11, h: 7, floor: 'slate' },
+      { name: '能量吧', x: 11, y: 0, w: 9, h: 7, floor: 'checker' },
+      { name: '遊戲大廳', x: 0, y: 7, w: 14, h: 7, floor: 'arcadeCarpet' },
+      { name: '電競區', x: 14, y: 7, w: 6, h: 7, floor: 'rubber' }
+    ],
+    walls: [
+      { axis: 'y', at: 7, from: 0, to: 14, doors: [4, 10], style: 'glass' },
+      { axis: 'x', at: 11, from: 0, to: 7, doors: [3] },
+      { axis: 'x', at: 14, from: 7, to: 14, doors: [10], style: 'glass' }
+    ],
+    north: [
+      { kind: 'window', u: 1, len: 3 }, { kind: 'window', u: 5, len: 3 }, { kind: 'slot', id: 'w1', u: 9.4 },
+      { kind: 'board', u: 14, len: 2 }, { kind: 'bar', u: 16.6, len: 2.6 }
+    ],
+    west: [{ kind: 'board', u: 1, len: 2 }, { kind: 'slot', id: 'w2', u: 4.2 }, { kind: 'door', u: 8, len: 2 }, { kind: 'shelf', u: 11, len: 2 }],
+    desks: {
+      claude: [2, 2, 'x'], codex: [7, 2, 'x'],
+      'claude-research': [1, 5, 'x'], 'claude-review': [4, 5, 'x'], 'codex-build': [7, 5, 'x'], 'codex-test': [9, 5, 'x']
+    },
+    rugs: [{ x: 1, y: 8, w: 12, d: 5, kind: 'plain', colors: ['#3a2a6a', '#2a1f4a'] }],
+    props: [
+      ['plant', 0, 0], ['rack', 10, 0], ['plant', 0, 6], ['shelf', 13, 0, { dir: 'x' }], ['table', 14, 3, { len: 2 }],
+      ['counter', 18, 2, { dir: 'y', len: 3 }], ['sofa', 13, 5, { dir: 'x', len: 2 }], ['plant', 19, 6],
+      ['cabinet', 0, 13, { dir: 'x' }], ['bench', 19, 8], ['plant', 13, 13], ['rack', 19, 9]
+    ],
+    places: {
+      board: [0, 1, 'nw'], boardRight: [0, 2, 'nw'], windowLeft: [4, 0, 'ne'], windowRight: [8, 0, 'ne'],
+      plantLeft: [1, 6, 'nw'], shelf: [13, 1, 'ne'], shelfLeft: [1, 13, 'nw'], rack: [9, 1, 'se'], workbench: [18, 8, 'se'],
+      loungeLeft: [17, 3, 'se'], loungeRight: [14, 4, 'ne']
+    },
+    slots: {
+      f1: { at: [5, 13], use: [5, 12, 'ne'] }, f2: { at: [12, 8], use: [12, 9, 'ne'] }, f3: { at: [13, 11], use: [12, 11, 'se'] },
+      f4: { at: [19, 12], use: [18, 12, 'se'] }, f5: { at: [16, 13], use: [16, 12, 'sw'] }, f6: { at: [12, 0], use: [12, 1, 'ne'] },
+      g1: { at: [2, 9], size: 2, use: [1, 9, 'se'], spots: [[1, 9, 'se'], [4, 10, 'nw'], [2, 11, 'ne']] },
+      g2: { at: [8, 9], size: 2, use: [7, 9, 'se'], spots: [[7, 9, 'se'], [10, 10, 'nw'], [8, 11, 'ne']] }
+    }
+  },
+
+  5: {
     w: 20, h: 14, wallH: 54, theme: 'forest',
     rooms: [
       { name: 'Claude 工作區', x: 0, y: 0, w: 6, h: 9, floor: 'deck' },
@@ -170,11 +214,13 @@ export const layouts = {
     },
     slots: {
       f1: { at: [7, 9], use: [8, 9, 'nw'] }, f2: { at: [13, 9], use: [12, 9, 'se'] }, f3: { at: [13, 4], use: [12, 4, 'se'] },
-      f4: { at: [5, 10], use: [4, 10, 'se'] }, f5: { at: [19, 13], use: [18, 13, 'se'] }, f6: { at: [14, 13], use: [15, 13, 'nw'] }
+      f4: { at: [5, 10], use: [4, 10, 'se'] }, f5: { at: [19, 13], use: [18, 13, 'se'] }, f6: { at: [14, 13], use: [15, 13, 'nw'] },
+      g1: { at: [16, 9], size: 2, use: [15, 9, 'se'], spots: [[15, 9, 'se'], [18, 9, 'nw'], [16, 11, 'ne']] },
+      g2: { at: [2, 7], size: 2, use: [1, 7, 'se'], spots: [[1, 7, 'se'], [4, 8, 'nw'], [2, 6, 'sw']] }
     }
   },
 
-  5: {
+  6: {
     w: 20, h: 15, wallH: 58, theme: 'penthouse',
     rooms: [
       { name: 'Claude 主管室', x: 0, y: 0, w: 7, h: 6, floor: 'navy' },
@@ -213,7 +259,57 @@ export const layouts = {
     },
     slots: {
       f1: { at: [19, 0], use: [19, 1, 'ne'] }, f2: { at: [14, 13], use: [15, 13, 'nw'] }, f3: { at: [19, 14], use: [18, 14, 'se'] },
-      f4: { at: [6, 5], use: [5, 5, 'se'] }, f5: { at: [13, 5], use: [12, 5, 'se'] }, f6: { at: [0, 7], use: [1, 7, 'nw'] }
+      f4: { at: [6, 5], use: [5, 5, 'se'] }, f5: { at: [13, 5], use: [12, 5, 'se'] }, f6: { at: [0, 7], use: [1, 7, 'nw'] },
+      f7: { at: [19, 11], use: [18, 11, 'se'] },
+      g1: { at: [2, 11], size: 2, use: [1, 11, 'se'], spots: [[1, 11, 'se'], [4, 12, 'nw'], [2, 13, 'ne']] },
+      g2: { at: [9, 11], size: 2, use: [8, 11, 'se'], spots: [[8, 11, 'se'], [11, 12, 'nw'], [9, 10, 'sw']] }
+    }
+  },
+
+  7: {
+    w: 24, h: 17, wallH: 58, theme: 'campus',
+    rooms: [
+      { name: 'Claude 工作坊', x: 0, y: 0, w: 9, h: 8, floor: 'bamboo' },
+      { name: 'Codex 工作坊', x: 9, y: 0, w: 9, h: 8, floor: 'bamboo' },
+      { name: '遊樂中庭', x: 0, y: 8, w: 18, h: 9, floor: 'court' },
+      { name: '空中花園', x: 18, y: 0, w: 6, h: 17, floor: 'turf' }
+    ],
+    walls: [
+      { axis: 'x', at: 9, from: 0, to: 8, doors: [], style: 'glass' },
+      { axis: 'y', at: 8, from: 0, to: 18, doors: [4, 13], style: 'glass' },
+      { axis: 'x', at: 18, from: 0, to: 17, doors: [3, 12], style: 'hedge' }
+    ],
+    north: [
+      { kind: 'window', u: 0.8, len: 3 }, { kind: 'slot', id: 'w1', u: 4.4 }, { kind: 'window', u: 5.2, len: 2.6 },
+      { kind: 'board', u: 10, len: 2 }, { kind: 'slot', id: 'w2', u: 12.8 }, { kind: 'window', u: 13.6, len: 3 },
+      { kind: 'glass', u: 18.4, len: 5.2 }
+    ],
+    west: [
+      { kind: 'board', u: 1, len: 2 }, { kind: 'window', u: 4.5, len: 2.5 }, { kind: 'slot', id: 'w3', u: 8.6 },
+      { kind: 'window', u: 10, len: 2.5 }, { kind: 'door', u: 13.5, len: 2 }
+    ],
+    desks: {
+      claude: [3, 3, 'x'], 'claude-research': [2, 6, 'x'], 'claude-review': [5, 6, 'x'],
+      codex: [12, 3, 'x'], 'codex-build': [11, 6, 'x'], 'codex-test': [14, 6, 'x']
+    },
+    rugs: [{ x: 1, y: 9, w: 16, d: 5, kind: 'plain', colors: ['#c98a4a', '#d9a868'] }, { x: 19, y: 3, w: 4, d: 3, kind: 'round', colors: ['#a98c5c', '#c2a777'] }],
+    props: [
+      ['plant', 0, 0], ['plant', 8, 0], ['plant', 9, 7], ['plant', 17, 0], ['shelf', 0, 4, { dir: 'y' }], ['cabinet', 17, 4, { dir: 'y' }],
+      ['rack', 17, 7], ['table', 21, 4, { len: 2 }], ['fountainBig', 20, 7], ['tree', 22, 1], ['tree', 22, 14], ['tree', 19, 15],
+      ['flowerBed', 23, 7], ['flowerBed', 19, 6], ['bench', 23, 15], ['plant', 0, 16]
+    ],
+    places: {
+      board: [0, 2, 'nw'], boardRight: [10, 0, 'ne'], windowLeft: [5, 0, 'ne'], windowRight: [14, 0, 'ne'],
+      plantLeft: [8, 1, 'ne'], shelf: [1, 4, 'nw'], shelfLeft: [16, 4, 'se'], rack: [16, 7, 'se'], workbench: [22, 15, 'se'],
+      loungeLeft: [20, 4, 'se'], loungeRight: [23, 4, 'nw']
+    },
+    slots: {
+      f1: { at: [0, 14], use: [1, 14, 'nw'] }, f2: { at: [4, 16], use: [4, 15, 'sw'] }, f3: { at: [12, 16], use: [12, 15, 'sw'] },
+      f4: { at: [17, 10], use: [16, 10, 'se'] }, f5: { at: [17, 15], use: [16, 15, 'se'] }, f6: { at: [23, 11], use: [22, 11, 'se'] },
+      f7: { at: [19, 0], use: [19, 1, 'ne'] }, f8: { at: [7, 16], use: [7, 15, 'sw'] },
+      g1: { at: [2, 10], size: 2, use: [1, 10, 'se'], spots: [[1, 10, 'se'], [4, 11, 'nw'], [2, 12, 'ne']] },
+      g2: { at: [7, 10], size: 2, use: [6, 10, 'se'], spots: [[6, 10, 'se'], [9, 11, 'nw'], [7, 12, 'ne']] },
+      g3: { at: [12, 10], size: 2, use: [11, 10, 'se'], spots: [[11, 10, 'se'], [14, 11, 'nw'], [12, 12, 'ne']] }
     }
   }
 };

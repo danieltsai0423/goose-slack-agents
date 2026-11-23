@@ -94,7 +94,14 @@ export const materials = {
   navy: carpet('#26304a', '#2d3856'),
   marble: marble('#ece9e3', '#e2ded6', '#bdb7ae', '#c9a45c'),
   walnut: herringbone(['#5a3a26', '#6b4630', '#4f3220'], '#2e1d14'),
-  kitchen: tiles('#e8e4da', '#cfd8d4', '#b9b4aa', 0.5)
+  kitchen: tiles('#e8e4da', '#cfd8d4', '#b9b4aa', 0.5),
+  slate: tiles('#33364f', '#2c2f45', '#1f2133', 1),
+  checker: tiles('#e8e4da', '#3a2f5a', '#2a2240', 0.5),
+  arcadeCarpet: speckle('#2a1f4a', ['#e0508a', '#40c0f0', '#f2c94c', '#7af07a'], 0.07),
+  rubber: concrete('#3a3d44', ['#44474f', '#30333a'], '#2a2c32'),
+  bamboo: planks(['#e4cc96', '#dcc28a', '#e9d4a2', '#e0c890'], '#b89c64'),
+  court: planks(['#d9a868', '#d09d5c', '#e0b072'], '#a8743a', { along: 'y', rows: 4 }),
+  turf: grass(['#7fae5f', '#88b866', '#76a457'], ['#ffffff', '#f2c94c', '#f0a1b8'])
 };
 
 /* ---------- Wall elevations ---------- */
@@ -103,7 +110,9 @@ const views = {
   loft: { minH: 5, maxH: 20, bodies: ['#8fb0b2', '#7ea2ab'] },
   mid: { minH: 4, maxH: 15, sky: ['#f0b98a', '#f5d2a2', '#e49a72'], cloud: ['#f7e2c4', '#fff2dc'], bodies: ['#c79a86', '#b98c7a'], side: '#a67a6c', lit: '#f5ddb0', dark: '#a98479', ground: '#9c9d74', groundLight: '#b4b285' },
   forest: { mountains: true, sky: ['#94cde0', '#bfe4ea', '#82bed5'], cloud: ['#eef6f2', '#ffffff'] },
-  penthouse: { sky: ['#1a2142', '#2b2f5a', '#151a35', '#4a3a66'], clouds: false, stars: true, bodies: ['#232a45', '#2a3150'], side: '#1b2138', lit: '#f3d38a', dark: '#3a4266', minH: 4, maxH: 18, ground: null, moon: 40 }
+  penthouse: { sky: ['#1a2142', '#2b2f5a', '#151a35', '#4a3a66'], clouds: false, stars: true, bodies: ['#232a45', '#2a3150'], side: '#1b2138', lit: '#f3d38a', dark: '#3a4266', minH: 4, maxH: 18, ground: null, moon: 40 },
+  neon: { sky: ['#2a1a4a', '#3a2260', '#1f1438', '#5a2a6a'], clouds: false, stars: true, bodies: ['#2a2450', '#33295a'], side: '#1f1a3a', lit: '#f06ab0', dark: '#3a3466', minH: 6, maxH: 20, ground: null },
+  campus: { sky: ['#8ccbf0', '#b2def5', '#a0d4f2'], cloud: ['#ffffff', '#eef8ff'], bodies: ['#b8c4d0', '#a8b6c4'], side: '#8a98a8', lit: '#e8f2fa', dark: '#98a6b4', minH: 2, maxH: 9, ground: null }
 };
 
 export const themes = {
@@ -167,7 +176,7 @@ export const themes = {
     frame: ['#6e4f34', '#6e4f34'], board: { frame: '#5f8a4a', face: '#c9a475', cork: true }, shelf: { wood: '#6e4f34', back: '#5e4329' },
     desk: { top: '#d9c29a', left: '#bfa67e', right: '#a08a62', edge: '#efdcb6', legs: '#8c7452' },
     fabric: { sofa: ['#8fae8a', '#7d9c78', '#5f7f5c'], chair: '#7d9c78' }, wood: ['#c49a68', '#a07a52', '#8a6440'],
-    door: { frame: '#5e4329', face: '#8c6a48', glass: '#7a5a3c', label: '4F' }
+    door: { frame: '#5e4329', face: '#8c6a48', glass: '#7a5a3c', label: '5F' }
   },
   penthouse: {
     backdrop: '#0f1320', slab: ['#141927', '#0c0f18'], cap: ['#151a28', '#c9a45c'],
@@ -181,7 +190,40 @@ export const themes = {
     frame: ['#c9a45c', '#c9a45c'], tall: true, board: { frame: '#c9a45c', face: '#2b2e36', dark: true }, shelf: { wood: '#2d2540', back: '#3b3150' },
     desk: { top: '#2a2b30', left: '#1d1e22', right: '#141518', edge: '#c9a45c', legs: '#c9a45c' },
     fabric: { sofa: ['#4b8a72', '#2f6b57', '#1c4033'], chair: '#2a2b30' }, wood: ['#3a2a20', '#2a1d14', '#1a120c'],
-    door: { frame: '#a8843f', face: '#b8955a', glass: '#e3c27a', label: 'PH' }
+    door: { frame: '#a8843f', face: '#b8955a', glass: '#e3c27a', label: '6F' }
+  },
+  neon: {
+    backdrop: '#141024', slab: ['#2a2440', '#1c1830'], cap: ['#1c1830', '#f06ab0'],
+    partition: { h: 18, top: '#40c0f0', left: '#2a2440', right: '#1c1830' },
+    glass: { top: '#40c0f0', pane: '#8a6ae038', frame: '#2a2440' },
+    base(p, L, H) {
+      p.box(0, 0, L, H, '#262040');
+      for (let x = 0; x < L; x += 12) p.box(x, 4, 1, H - 10, '#2f2850');
+      // Neon strips along the top and above the skirting, pink and cyan.
+      p.box(0, 4, L, 1, '#f06ab0'); p.box(0, 5, L, 1, '#f06ab060');
+      p.box(0, H - 8, L, 1, '#40c0f0'); p.box(0, H - 9, L, 1, '#40c0f060');
+      p.box(0, H - 7, L, 7, '#1c1830');
+      for (let x = 20; x < L; x += 46) { p.box(x, 14, 10, 1, '#7af07a'); p.box(x + 2, 16, 6, 1, '#f2c94c'); }
+    },
+    frame: ['#40c0f0', '#2a2440'], board: { frame: '#f06ab0', face: '#1c1830', dark: true }, shelf: { wood: '#2a2440', back: '#1c1830' },
+    desk: { top: '#2f2a4a', left: '#221e38', right: '#18152a', edge: '#40c0f0', legs: '#111' },
+    fabric: { sofa: ['#e0508a', '#b83a6c', '#7a2448'], chair: '#2a2440' }, wood: ['#4a3a6a', '#3a2c55', '#2a1f40'],
+    door: { frame: '#40c0f0', face: '#2a2440', glass: '#f06ab0', label: '4F' }
+  },
+  campus: {
+    backdrop: '#5a8ab0', slab: ['#c0b8a8', '#a29a8a'], cap: ['#e8eef2', '#6f9a55'],
+    partition: { h: 16, top: '#e4cc96', left: '#c9ac74', right: '#a88d58' },
+    glass: { top: '#e8eef2', pane: '#c8e8f840', frame: '#b8c4cc' },
+    base(p, L, H) {
+      p.box(0, 0, L, H, '#f2f0e8');
+      for (let x = 0; x < L; x += 5) p.box(x, H - 22, 3, 14, '#d9c08a');
+      p.box(0, H - 23, L, 1, '#b89c64'); p.box(0, H - 8, L, 8, '#8a9a78'); p.box(0, H - 8, L, 1, '#a8b896');
+      for (let x = 3; x < L; x += 7) p.box(x, H - 11, 2, 3, ['#6f9a55', '#7fae5f'][x % 2]);
+    },
+    frame: ['#b8c4cc', '#e8eef2'], tall: true, board: { frame: '#6f9a55', face: '#f3ead2', cork: true }, shelf: { wood: '#c9ac74', back: '#e4d4aa' },
+    desk: { top: '#ead7a8', left: '#d2bc8a', right: '#b8a070', edge: '#f6e8c4', legs: '#8a9a78' },
+    fabric: { sofa: ['#6fa0c8', '#5888b0', '#3f6a8a'], chair: '#6fa0c8' }, wood: ['#e4cc96', '#c9ac74', '#a88d58'],
+    door: { frame: '#8a9a78', face: '#e4cc96', glass: '#c8e8f8', label: '7F' }
   }
 };
 for (const [name, theme] of Object.entries(themes)) theme.view = views[name];

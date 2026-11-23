@@ -61,7 +61,7 @@ test('items, furniture and floors spend funds and enforce their rules', () => {
   assert.deepEqual(economy.buy({ kind: 'perk', id: 'flex' }).perks, ['flex']);
   assert.equal(economy.snapshot().rates.energy, before + 2);
   assert.throws(() => economy.buy({ kind: 'perk', id: 'flex' }), /已經實施/);
-  assert.throws(() => economy.buy({ kind: 'perk', id: 'bonus' }), /5F/);
+  assert.throws(() => economy.buy({ kind: 'perk', id: 'bonus' }), /6F/);
 });
 
 test('moods recover over time and emotions follow mood and energy', () => {
@@ -71,4 +71,26 @@ test('moods recover over time and emotions follow mood and energy', () => {
   assert.ok(rested.codex.energy > tired.codex.energy);
   assert.equal(emotionOf({ mood: 90, energy: 90 }), 'elated');
   assert.equal(emotionOf({ mood: 10, energy: 90 }), 'sad');
+});
+
+test('small offices hold less: large facilities wait in storage until a floor has a large spot', () => {
+  let clock = 0;
+  const economy = openOfficeEconomy({ now: () => clock });
+  for (let k = 1; k <= 40; k++) economy.ingest('codex', reading(k % 2 ? 100 : 0, k * 1e7));
+  assert.ok(economy.snapshot().funds > 40000);
+  for (const id of ['bonsai', 'beanbag', 'water', 'claw']) economy.buy({ kind: 'furniture', id });
+  // 1F has three small spots, so the fourth piece is stored.
+  assert.equal(Object.keys(economy.snapshot().placed).length, 3);
+  assert.throws(() => economy.place({ furniture: 'claw', slot: 'f4' }), /沒有這個位置/);
+  economy.moveTo({ floor: 2 });
+  const loft = economy.buy({ kind: 'furniture', id: 'pingpong' });
+  assert.equal(loft.placed.g1, 'pingpong');
+  assert.ok(Object.values(loft.placed).includes('claw'), 'moving up unpacks stored pieces');
+  assert.throws(() => economy.place({ furniture: 'bonsai', slot: 'g1' }), /大型設施/);
+  assert.throws(() => economy.place({ furniture: 'pingpong', slot: 'f1' }), /大型空位/);
+  // Back on 1F the table goes into storage; the move keeps three small pieces out.
+  const back = economy.moveTo({ floor: 1 });
+  assert.equal(Object.values(back.placed).includes('pingpong'), false);
+  assert.equal(Object.keys(back.placed).length, 3);
+  assert.ok(back.owned.includes('pingpong'));
 });

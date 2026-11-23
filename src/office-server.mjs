@@ -20,6 +20,7 @@ const staticFiles = new Map([
   ['/', ['index.html', 'text/html']], ['/index.html', ['index.html', 'text/html']],
   ['/app.js', ['app.js', 'text/javascript']], ['/scene.js', ['scene.js', 'text/javascript']],
   ['/life.js', ['life.js', 'text/javascript']],
+  ['/behavior.js', ['behavior.js', 'text/javascript']],
   ['/attachment-types.js', ['attachment-types.js', 'text/javascript']],
   ['/workspace-tools.js', ['workspace-tools.js', 'text/javascript']],
   ['/folder-picker.js', ['folder-picker.js', 'text/javascript']],
@@ -29,6 +30,7 @@ const staticFiles = new Map([
   ['/furniture.js', ['furniture.js', 'text/javascript']], ['/iso.js', ['iso.js', 'text/javascript']],
   ['/iso-layouts.js', ['iso-layouts.js', 'text/javascript']], ['/iso-world.js', ['iso-world.js', 'text/javascript']],
   ['/iso-themes.js', ['iso-themes.js', 'text/javascript']], ['/iso-props.js', ['iso-props.js', 'text/javascript']],
+  ['/iso-facilities.js', ['iso-facilities.js', 'text/javascript']],
   ['/office-shop.js', ['office-shop.js', 'text/javascript']]
 ]);
 function problem(statusCode, message) { return Object.assign(new Error(message), { statusCode }); }

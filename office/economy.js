@@ -16,31 +16,50 @@ export const favorites = {
 };
 export const FAVORITE_BONUS = 1.6;
 
+// The building, bottom to top. Each floor is bigger than the last and has room for more furniture:
+// "small" spots take one-tile pieces, "large" spots take 2×2 multi-player facilities, "wall" spots hang art.
 export const floors = [
   {
-    id: 1, name: '暖木工作室', style: 'Japandi 暖木', price: 0, income: 1, energy: 0, mood: 0, decay: 0,
-    blurb: '淺色橡木地板、亞麻沙發與滿室綠植。小團隊起家的地方，溫暖但有點擠。',
+    id: 1, name: '暖木工作室', style: 'Japandi 暖木', price: 0, income: 1, energy: 0, mood: 0, decay: 0, size: '14 × 11',
+    capacity: { small: 3, large: 0, wall: 1 },
+    blurb: '淺色橡木地板、亞麻沙發與滿室綠植。小團隊起家的地方，溫暖但很擠，只放得下三件小家具。',
     perk: '基準樓層'
   },
   {
-    id: 2, name: '工業風 Loft', style: 'Industrial Loft', price: 6000, income: 1.2, energy: 2, mood: 0, decay: 0,
-    blurb: '紅磚牆、黑鐵格窗、清水模地板與裸露管線，吊著愛迪生燈泡的老倉庫改建。',
+    id: 2, name: '工業風 Loft', style: 'Industrial Loft', price: 6000, income: 1.2, energy: 2, mood: 0, decay: 0, size: '16 × 12',
+    capacity: { small: 5, large: 1, wall: 2 },
+    blurb: '紅磚牆、黑鐵格窗、清水模地板與裸露管線。終於有一塊空地，擺得下第一張雙人遊戲桌。',
     perk: '吧台常備咖啡：精力每小時 +2'
   },
   {
-    id: 3, name: '中世紀摩登', style: 'Mid-century Modern', price: 18000, income: 1.45, energy: 1, mood: 2, decay: 0,
-    blurb: '柚木格柵、芥末黃牆面、磨石子地板、拱形窗與太陽放射鐘，六〇年代的樂觀設計。',
+    id: 3, name: '中世紀摩登', style: 'Mid-century Modern', price: 18000, income: 1.45, energy: 1, mood: 2, decay: 0, size: '18 × 13',
+    capacity: { small: 6, large: 1, wall: 2 },
+    blurb: '柚木格柵、芥末黃牆面、磨石子地板，兩組各有工作室，中間是寬敞的交誼廳。',
     perk: '心情每小時 +2、精力 +1'
   },
   {
-    id: 4, name: '森林中庭', style: 'Biophilic Atrium', price: 45000, income: 1.75, energy: 2, mood: 2, decay: 0.5,
+    id: 4, name: '霓虹遊戲基地', style: 'Neon Game Lab', price: 40000, income: 1.6, energy: 1, mood: 3, decay: 0.2, size: '20 × 14',
+    capacity: { small: 6, large: 2, wall: 2 },
+    blurb: '深色地坪、霓虹燈條和整片遊戲大廳。專為大型遊樂設施設計的一層，午休時間最熱鬧。',
+    perk: '心情每小時 +3，心情衰退 −20%'
+  },
+  {
+    id: 5, name: '森林中庭', style: 'Biophilic Atrium', price: 70000, income: 1.85, energy: 2, mood: 2, decay: 0.5, size: '20 × 14',
+    capacity: { small: 6, large: 2, wall: 2 },
     blurb: '植生牆、天窗光束、石板步道與室內瀑布。親自然設計讓人自然放鬆。',
     perk: '心情衰退減半，心情與精力每小時 +2'
   },
   {
-    id: 5, name: '天際頂樓', style: 'Skyline Penthouse', price: 100000, income: 2.2, energy: 3, mood: 4, decay: 0.5,
+    id: 6, name: '天際頂樓', style: 'Skyline Penthouse', price: 120000, income: 2.2, energy: 3, mood: 4, decay: 0.5, size: '20 × 15',
+    capacity: { small: 7, large: 2, wall: 2 },
     blurb: '整面落地窗俯瞰城市夜景，大理石地板、黃銅線條與水晶吊燈。',
-    perk: '收入最高，心情每小時 +4、精力 +3'
+    perk: '心情每小時 +4、精力 +3'
+  },
+  {
+    id: 7, name: '空中園區', style: 'Sky Campus', price: 220000, income: 2.6, energy: 4, mood: 4, decay: 0.6, size: '24 × 17',
+    capacity: { small: 8, large: 3, wall: 3 },
+    blurb: '整層樓頂的園區：兩間工作坊、一座遊樂中庭和空中花園。所有設施都放得下。',
+    perk: '收入最高，心情與精力每小時 +4，心情衰退 −60%'
   }
 ];
 
@@ -64,11 +83,24 @@ export const items = [
   { id: 'trip', name: '員工旅遊', price: 3500, mood: 35, energy: 30, team: true, desc: '包下溫泉旅館兩天一夜，全員放風。', lines: ['我們回來了，帶了伴手禮！', '泡完溫泉，bug 也變可愛了。'] }
 ];
 
+// Slot ids: f1… small floor spots, g1… large (2×2) floor spots, w1… wall spots. Each floor has the first N of each.
+const slotIds = { small: ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8'], large: ['g1', 'g2', 'g3'], wall: ['w1', 'w2', 'w3'] };
 export const slots = [
-  { id: 'f1', kind: 'floor', x: 72 }, { id: 'f2', kind: 'floor', x: 122 }, { id: 'f3', kind: 'floor', x: 170 },
-  { id: 'f4', kind: 'floor', x: 342 }, { id: 'f5', kind: 'floor', x: 392 }, { id: 'f6', kind: 'floor', x: 442 },
-  { id: 'w1', kind: 'wall', x: 209 }, { id: 'w2', kind: 'wall', x: 297 }
+  ...slotIds.small.map(id => ({ id, kind: 'floor', size: 1 })),
+  ...slotIds.large.map(id => ({ id, kind: 'floor', size: 2 })),
+  ...slotIds.wall.map(id => ({ id, kind: 'wall', size: 1 }))
 ];
+export function slotsFor(floorId) {
+  const capacity = (floors.find(floor => floor.id === floorId) || floors[0]).capacity;
+  return slots.filter(slot => {
+    const group = slot.kind === 'wall' ? 'wall' : slot.size === 2 ? 'large' : 'small';
+    return slotIds[group].indexOf(slot.id) < capacity[group];
+  });
+}
+export const sizeOf = entry => entry?.size || 1;
+// The lowest floor with a spot this piece fits in.
+export const firstFloorFor = entry => floors.find(floor => slotsFor(floor.id).some(slot => slot.kind === entry.kind && slot.size === sizeOf(entry)))?.id ?? null;
+export const fits = (entry, slot) => Boolean(entry && slot && entry.kind === slot.kind && sizeOf(entry) === slot.size);
 
 export const furniture = [
   { id: 'bonsai', name: '松柏盆景', kind: 'floor', price: 600, floor: 1, mood: 1, desc: '修剪得剛好的小松樹。', use: ['修一下這根枝條。', '它長得比我有耐心。'] },
@@ -81,9 +113,9 @@ export const furniture = [
   { id: 'aquarium', name: '熱帶魚缸', kind: 'floor', price: 2400, floor: 2, mood: 1, decay: 0.3, desc: '看魚游泳能讓心情慢慢穩定。', use: ['那條橘色的又在發呆。', '牠們都不用寫測試。'] },
   { id: 'arcade', name: '復古街機', kind: 'floor', price: 3200, floor: 3, mood: 4, desc: '一枚代幣可以玩到下班。', use: ['再一局，最後一局。', '破紀錄了！'] },
   { id: 'massage-chair', name: '按摩椅', kind: 'floor', price: 4500, floor: 3, energy: 5, desc: '十二段力道，含肩頸加強。', use: ['啊……就是這裡。', '我宣布休息十分鐘。'] },
-  { id: 'painting', name: '抽象油畫', kind: 'wall', price: 6000, floor: 4, mood: 3, income: 0.05, desc: '色塊大膽的原作，客戶都會多看兩眼。' },
-  { id: 'piano', name: '直立鋼琴', kind: 'floor', price: 8000, floor: 4, mood: 5, desc: '午休時間總有人彈一段。', use: ['我只會這一段。', '這段旋律可以當成功提示音。'] },
-  { id: 'trophy', name: '金獎陳列櫃', kind: 'floor', price: 12000, floor: 5, mood: 3, income: 0.1, desc: '放滿這間辦公室得過的獎。', use: ['這座獎盃要擦亮。', '下一座放這裡。'] },
+  { id: 'painting', name: '抽象油畫', kind: 'wall', price: 6000, floor: 5, mood: 3, income: 0.05, desc: '色塊大膽的原作，客戶都會多看兩眼。' },
+  { id: 'piano', name: '直立鋼琴', kind: 'floor', price: 8000, floor: 5, mood: 5, desc: '午休時間總有人彈一段。', use: ['我只會這一段。', '這段旋律可以當成功提示音。'] },
+  { id: 'trophy', name: '金獎陳列櫃', kind: 'floor', price: 12000, floor: 6, mood: 3, income: 0.1, desc: '放滿這間辦公室得過的獎。', use: ['這座獎盃要擦亮。', '下一座放這裡。'] },
   { id: 'floor-lamp', name: '弧形落地燈', kind: 'floor', price: 500, floor: 1, mood: 1, desc: '暖黃光從頭頂灑下來。', use: ['光線剛好，眼睛不累。', '我把燈調暗一格。'] },
   { id: 'water', name: '飲水機', kind: 'floor', price: 700, floor: 1, mood: 1, energy: 1, desc: '冷熱兩用，還會咕嚕冒泡。', use: ['多喝水，少寫 bug。', '聽，它又咕嚕了。'] },
   { id: 'clock', name: '復古掛鐘', kind: 'wall', price: 800, floor: 1, energy: 1, desc: '黃銅指針，每小時輕敲一聲。' },
@@ -93,10 +125,21 @@ export const furniture = [
   { id: 'popcorn', name: '爆米花機', kind: 'floor', price: 1900, floor: 3, mood: 2, energy: 1, desc: '紅色小推車，香味飄滿整層樓。', use: ['奶油口味，滿滿一杯。', '劈哩啪啦，聽起來像在編譯。'] },
   { id: 'vinyl-wall', name: '唱片牆', kind: 'wall', price: 3000, floor: 3, mood: 2, decay: 0.1, desc: '六張經典專輯封面，框成一面牆。' },
   { id: 'cat', name: '辦公室貓咪', kind: 'floor', price: 5000, floor: 3, mood: 4, decay: 0.1, desc: '一隻橘貓和牠的跳台，會在上面打盹。', use: ['牠剛剛對我眨眼了。', '今天的會議由貓主持。'] },
-  { id: 'fountain', name: '石砌噴泉', kind: 'floor', price: 7500, floor: 4, mood: 2, decay: 0.2, desc: '流水聲讓整層樓安靜下來。', use: ['水聲剛好蓋過鍵盤聲。', '我丟了一枚硬幣許願。'] },
-  { id: 'telescope', name: '天文望遠鏡', kind: 'floor', price: 9000, floor: 4, mood: 3, desc: '晚上可以看到土星環。', use: ['看到土星了！', '宇宙那麼大，這個 bug 很小。'] },
-  { id: 'sleep-pod', name: '睡眠艙', kind: 'floor', price: 15000, floor: 5, energy: 7, desc: '隔音、調光、二十分鐘喚醒。', use: ['二十分鐘，充飽電。', '……我睡著前在想什麼？'] },
-  { id: 'sculpture', name: '青銅雕塑', kind: 'floor', price: 20000, floor: 5, mood: 3, income: 0.08, desc: '藝術家親手鑄造的抽象作品。', use: ['每個角度看起來都不一樣。', '它好像在思考什麼。'] }
+  { id: 'fountain', name: '石砌噴泉', kind: 'floor', price: 7500, floor: 5, mood: 2, decay: 0.2, desc: '流水聲讓整層樓安靜下來。', use: ['水聲剛好蓋過鍵盤聲。', '我丟了一枚硬幣許願。'] },
+  { id: 'telescope', name: '天文望遠鏡', kind: 'floor', price: 9000, floor: 5, mood: 3, desc: '晚上可以看到土星環。', use: ['看到土星了！', '宇宙那麼大，這個 bug 很小。'] },
+  { id: 'sleep-pod', name: '睡眠艙', kind: 'floor', price: 15000, floor: 6, energy: 7, desc: '隔音、調光、二十分鐘喚醒。', use: ['二十分鐘，充飽電。', '……我睡著前在想什麼？'] },
+  { id: 'sculpture', name: '青銅雕塑', kind: 'floor', price: 20000, floor: 6, mood: 3, income: 0.08, desc: '藝術家親手鑄造的抽象作品。', use: ['每個角度看起來都不一樣。', '它好像在思考什麼。'] },
+  // Interactive facilities. players: how many people use it together (the first walks over and invites the rest).
+  { id: 'claw', name: '夾娃娃機', kind: 'floor', price: 1400, floor: 1, mood: 2, players: 1, desc: '投一枚代幣，夾一隻玩偶回座位。', use: ['往左一點……再一點……', '夾到了！給你。'] },
+  { id: 'boardgame', name: '桌遊桌', kind: 'floor', size: 2, price: 2800, floor: 2, mood: 3, players: 3, desc: '一整櫃桌遊，三個人圍著就能開一局。', use: ['輪到你了，想好了嗎？', '這張卡我留到最後。'] },
+  { id: 'hoops', name: '投籃機', kind: 'floor', price: 2200, floor: 2, mood: 2, energy: 1, players: 1, desc: '六十秒內能投進幾球？', use: ['唰！空心！', '再一球就破紀錄了。'] },
+  { id: 'pingpong', name: '桌球桌', kind: 'floor', size: 2, price: 3800, floor: 2, mood: 3, energy: 2, players: 2, desc: '主管和員工最常約的一局，一球見真章。', use: ['這球我接到了！', '再一局，三戰兩勝。'] },
+  { id: 'dance-pad', name: '跳舞機', kind: 'floor', price: 3400, floor: 3, mood: 3, energy: 1, players: 1, desc: '上下左右，跟著節拍踩。', use: ['全部 Perfect！', '這首的節奏太快了吧。'] },
+  { id: 'air-hockey', name: '空氣曲棍球', kind: 'floor', size: 2, price: 5200, floor: 3, mood: 4, players: 2, desc: '冰面上的圓盤飛得比 bug 還快。', use: ['擋下來了！', '這球不算，我還沒準備好。'] },
+  { id: 'vr', name: 'VR 體驗區', kind: 'floor', price: 6500, floor: 4, mood: 4, players: 1, desc: '戴上頭盔，走進另一個世界。', use: ['等等，我在月球上。', '這個關卡我閉著眼都會。'] },
+  { id: 'racing', name: '賽車模擬器', kind: 'floor', price: 7200, floor: 4, mood: 4, energy: 1, players: 1, desc: '方向盤會震動的整座駕駛艙。', use: ['最後一個彎道！', '我刷新圈速了。'] },
+  { id: 'pool', name: '撞球台', kind: 'floor', size: 2, price: 9800, floor: 5, mood: 4, income: 0.04, players: 2, desc: '綠色檯呢與黃銅邊框，午後的一場慢節奏對決。', use: ['先打這顆，再走位。', '一桿清台，看好了。'] },
+  { id: 'karaoke', name: '卡拉OK舞台', kind: 'floor', size: 2, price: 16000, floor: 6, mood: 6, energy: 2, players: 3, desc: '小舞台、麥克風與彩色燈光，一人唱、大家喊安可。', use: ['下一首換你唱！', '安可！安可！'] }
 ];
 
 // One-off policies: bought once, they stay in effect wherever the office moves.
@@ -107,8 +150,8 @@ export const perks = [
   { id: 'pet', name: '寵物友善', price: 6000, floor: 2, mood: 3, desc: '可以帶狗狗一起上班。' },
   { id: 'training', name: '學習基金', price: 8000, floor: 3, income: 0.05, desc: '每人每年一筆課程與書籍預算。' },
   { id: 'counsel', name: '心理諮商', price: 12000, floor: 3, mood: 1, decay: 0.2, desc: '每月一次免費諮商，壓力有地方放。' },
-  { id: 'remote', name: '遠端工作日', price: 15000, floor: 4, energy: 3, mood: 2, desc: '每週五可以在家工作。' },
-  { id: 'bonus', name: '年終分紅', price: 25000, floor: 5, mood: 2, income: 0.1, desc: '業績好，大家一起分。' }
+  { id: 'remote', name: '遠端工作日', price: 15000, floor: 5, energy: 3, mood: 2, desc: '每週五可以在家工作。' },
+  { id: 'bonus', name: '年終分紅', price: 25000, floor: 6, mood: 2, income: 0.1, desc: '業績好，大家一起分。' }
 ];
 
 export const itemById = Object.fromEntries(items.map(entry => [entry.id, entry]));
