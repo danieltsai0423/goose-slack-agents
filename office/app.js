@@ -744,8 +744,7 @@ function renderChat(force=false) {
 function showView(next) {
   view=next;
   $('floor-view').hidden=next!=='floor';$('history-view').hidden=next!=='history';
-  $('history-page-head').hidden=next!=='history';
-  $('shop-view').hidden=$('shop-page-head').hidden=next!=='shop';
+  $('shop-view').hidden=next!=='shop';
   $('dispatch').hidden=next==='shop';
   document.querySelector('.layout').classList.toggle('single',next==='shop');
   $('chat-new').hidden=next!=='floor';$('chat-return').hidden=next!=='history';

@@ -1,20 +1,19 @@
 /* Office shop: a game-style storefront built on the office's pixel art.
    Cards share one frame (art well, text, price + actions); rarity tints come from each catalog's price spread. */
 
-.shop-page, #shop-page-head {
+.shop-page {
   --s-card: #1b252c; --s-card-2: #222f37; --s-well: #111a1f; --s-edge: #0a1013; --s-bevel: #ffffff12; --s-drop: #00000066;
   --s-dash: #33424a; --s-short: #ff9c8f; --s-ok: var(--lime);
   --t-common: #8fa3ad; --t-rare: #5fb0ff; --t-epic: #c08cff; --t-legendary: #ffbe3d;
   --btn-buy-1: #ffd979; --btn-buy-2: #f2a630; --btn-buy-ink: #3a2400; --btn-buy-edge: #6b4400;
   --btn-use-1: #d4f5a0; --btn-use-2: #93c95c; --btn-use-ink: #1b2a10; --btn-use-edge: #2f4a1c;
 }
-:root[data-theme="light"] :is(.shop-page, #shop-page-head) {
+:root[data-theme="light"] .shop-page {
   --s-card: #ffffff; --s-card-2: #f6faf4; --s-well: #e9f0e7; --s-edge: #b3c3b7; --s-bevel: #ffffffcc; --s-drop: #6d857333;
   --s-dash: #c5d3c8; --s-short: #b3402f;
   --t-common: #6c7e86; --t-rare: #2a74c2; --t-epic: #8a4fd1; --t-legendary: #b07800;
 }
 
-#shop-page-head h1 { text-shadow: 0 3px 0 var(--s-drop); }
 .shop-page { min-width: 0; display: grid; align-content: start; gap: 16px; }
 .shop-sprite, .pixel-badge { image-rendering: pixelated; flex: none; }
 
