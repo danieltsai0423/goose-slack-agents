@@ -87,7 +87,9 @@ function when(value, date = false) {
 }
 function getStore(key) { try {return JSON.parse(localStorage.getItem('goose-office:' + key));} catch{return null;} }
 function putStore(key, value) { try {if(value == null) localStorage.removeItem('goose-office:'+key); else localStorage.setItem('goose-office:'+key,JSON.stringify(value));} catch { /* Storage can be disabled. */ } }
-let lifeEnabled = getStore('office-life') !== false;
+// The 辦公室日常 switch is the one control for office animation. With no choice saved yet it follows the system's
+// reduced-motion setting; once someone flips it, their choice wins over the system.
+let lifeEnabled = typeof getStore('office-life') === 'boolean' ? getStore('office-life') : !matchMedia('(prefers-reduced-motion: reduce)').matches;
 let lifeFrame = null;
 const savedModels = {...getStore('models')};
 const effortLabels = {none:'Off',low:'Low',medium:'Medium',high:'High',xhigh:'XHigh',max:'Max'};
@@ -309,7 +311,7 @@ function renderOfficeLife(frame) {
 function renderLifeToggle() {
   const button=$('office-life-toggle');
   button.setAttribute('aria-pressed',String(lifeEnabled));
-  button.title=lifeEnabled?'暫停辦公室日常動畫':'恢復辦公室日常動畫';
+  button.title=lifeEnabled?'暫停辦公室動畫（人物會停在座位上）':'播放辦公室動畫（包含走動、小動作與遊樂設施）';
 }
 function moodNode(status) {
   const emotion=status&&emotions[status.emotion];

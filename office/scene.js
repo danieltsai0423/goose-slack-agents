@@ -206,6 +206,8 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
   let poses = new Map(), anchors = new Map(), effects = [];
   const routes = new Map();
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  // Reduced motion keeps the office still unless the person has switched 辦公室日常 on, which overrides it.
+  const still = () => reduced.matches && !lifeEnabled;
   const ambient = createOfficeLife();
   const behaviors = createBehaviors();
   let acts = new Map();
@@ -274,7 +276,7 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     return routes.get(key);
   }
   function poseFor(id, life, index) {
-    if (reduced.matches || !floor.plan.seats[id]) return null;
+    if (still() || !floor.plan.seats[id]) return null;
     const place = placeTile(life.place, index);
     if (!place) return null;
     const route = routeFor(id, place);
@@ -453,7 +455,7 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     const ids = [...agents.keys()].filter(id => floor.plan.seats[id]);
     acts = behaviors.step(now, {
       ids, working: new Set(ids.filter(id => workingStates.has(agents.get(id).status))),
-      blocked: new Set(frame?.actors || []), enabled: animateLife && !reduced.matches,
+      blocked: new Set(frame?.actors || []), enabled: animateLife,
       tired: new Set(ids.filter(id => moods[id] === 'tired' || moods[id] === 'sad')),
       happy: new Set(ids.filter(id => moods[id] === 'happy' || moods[id] === 'elated')),
       maxWalkers: Math.max(1, Math.min(3, Math.floor(ids.length / 2))), errands: errandsFor, measure: measureErrand
@@ -479,10 +481,10 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     }
     if (frame?.place?.startsWith('slot:') && frame.elapsed >= frame.walk && frame.elapsed < frame.endsAt - frame.start - frame.walk) active.add(frame.place.slice(5));
     effects = effects.filter(effect => now - effect.start < effect.duration);
-    const liveTick = reduced.matches ? 0 : tick;
+    const liveTick = still() ? 0 : tick;
     anchors = drawFrame(world, floor, {
       agents, poses, moods, selected, hovered, tick: liveTick, effects, now, looks: looksFor(now), active,
-      deskProp: (id, agent) => animateLife && !reduced.matches && agent.status === 'idle' && !frame?.actors.includes(id) && !acts.has(id) &&
+      deskProp: (id, agent) => animateLife && agent.status === 'idle' && !frame?.actors.includes(id) && !acts.has(id) &&
         (now + variants[id] * 2090) % (5100 + variants[id] * 1140) < 1250 ? deskProps[variants[id]] : null
     });
     const phase = frame && (frame.elapsed < frame.walk ? 'out' : frame.elapsed >= frame.endsAt - frame.start - frame.walk ? 'back' : 'activity');
@@ -625,10 +627,10 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
   function schedule() {
     clearTimeout(timer);
     if (dead || !visible || document.hidden) return;
-    if (!lifeEnabled && reduced.matches && !effects.length) return;
+    if (still() && !effects.length) return;
     const busy = [...agents.values()].some(a => workingStates.has(a.status));
-    const moving = !reduced.matches && [...poses.values()].some(pose => pose.moving);
-    const lively = !reduced.matches && (acts.size || frame || busy);
+    const moving = !still() && [...poses.values()].some(pose => pose.moving);
+    const lively = !still() && (acts.size || frame || busy);
     timer = setTimeout(() => { render(); schedule(); }, effects.length ? 60 : moving ? 80 : lively ? 150 : 500);
   }
   function refreshVisibility() { render(); schedule(); }
