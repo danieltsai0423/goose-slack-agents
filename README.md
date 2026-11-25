@@ -7,6 +7,8 @@ Hand tasks to two leads, watch their staff walk, chat and play between jobs, and
 
 English · [繁體中文](README.zh-TW.md)
 
+![License: MIT](https://img.shields.io/badge/license-MIT-b5dc83) ![Node.js 24+](https://img.shields.io/badge/node-%E2%89%A524-91b8ef)
+
 ![The office on 4F, the Neon Game Lab: staff walk between desks, chat and play air hockey](docs/images/office.gif)
 
 </div>
@@ -27,6 +29,7 @@ An optional **Slack bridge** puts the same two agents in a private Slack channel
 - [Settings](#settings)
 - [Slack bridge](#slack-bridge)
 - [Development](#development)
+- [License](#license)
 
 ## Features
 
@@ -201,3 +204,7 @@ Tests use simulated agents and isolated databases, so they need no Slack, model 
 | Slack bridge | `src/main.mjs`, `src/bridge.mjs`, `src/store.mjs` |
 
 **Never commit** `.env`, `.data/` or `.tools/`: they hold your sign-ins, conversations and downloaded tools, and `.gitignore` already excludes them.
+
+## License
+
+[MIT](LICENSE). Claude, Claude Code, Codex, ChatGPT, Goose and Slack are trademarks of their respective owners; this project is not affiliated with or endorsed by them.

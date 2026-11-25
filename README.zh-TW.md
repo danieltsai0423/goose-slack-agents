@@ -7,6 +7,8 @@
 
 [English](README.md) · 繁體中文
 
+![License: MIT](https://img.shields.io/badge/license-MIT-b5dc83) ![Node.js 24+](https://img.shields.io/badge/node-%E2%89%A524-91b8ef)
+
 ![4F 霓虹遊戲基地：員工在座位間走動、聊天、打空氣曲棍球](docs/images/office.gif)
 
 </div>
@@ -27,6 +29,7 @@ Goose Office 是一個本機網頁應用，透過 [Goose](https://github.com/aai
 - [設定](#設定)
 - [Slack 橋接器](#slack-橋接器)
 - [開發](#開發)
+- [授權](#授權)
 
 ## 功能
 
@@ -201,3 +204,7 @@ npm test
 | Slack 橋接器 | `src/main.mjs`、`src/bridge.mjs`、`src/store.mjs` |
 
 **請勿提交** `.env`、`.data/` 或 `.tools/`：這些資料夾存著你的登入資料、對話與下載的工具，`.gitignore` 已排除它們。
+
+## 授權
+
+[MIT](LICENSE)。Claude、Claude Code、Codex、ChatGPT、Goose 與 Slack 是各自所有者的商標；本專案與這些公司沒有關聯，也未獲其背書。
