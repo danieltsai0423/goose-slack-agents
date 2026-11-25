@@ -1,114 +1,203 @@
-# Goose Slack Agents
+<div align="center">
 
-在一個私人 Slack 頻道中，讓 `Goose-Codex` 和 `Goose-Claude` 各用自己的 Bot 身分回覆。單一橋接器接收頻道訊息，用 SQLite 記錄討論串。Goose 只在點名或啟用協作時呼叫模型。
+# Goose Office
 
-接手開發或維護時，可查看 [代理交接手冊](AGENTS.md) 的架構、執行流程與驗證方式。
+**A pixel-art office where Claude and Codex run your AI team.**
+Hand tasks to two leads, watch their staff walk, chat and play between jobs, and spend the quota you use on a bigger office.
 
-| Agent | Goose provider | 帳號 |
-| --- | --- | --- |
-| Goose-Codex | `chatgpt_codex` | 橋接器專用 Goose 設定中的 ChatGPT Plus 瀏覽器登入 |
-| Goose-Claude | `claude-acp` | 相同系統帳戶內，原版 Claude Code 登入的個人 Claude 訂閱 |
+English · [繁體中文](README.zh-TW.md)
 
-服務用指定的 Slack 使用者 ID 驗證指令，用兩組 Bot token 發言。普通對話在 `.data` 的獨立工作目錄進行，並停用開發工具。使用「執行：」啟動的工作會以橋接器的系統帳號權限使用檔案和 Shell 工具，無須逐項提示核准。Anthropic 對第三方工具的可用性及扣款方式取決於帳號與服務端規則。 [Anthropic 第三方工具登入](https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account)
+![The office on 4F, the Neon Game Lab: staff walk between desks, chat and play air hockey](docs/images/office.gif)
 
-## 本機設定
+</div>
 
-### 數位辦公室
+Goose Office is a local web app for working with **Claude Code** and **OpenAI Codex** through [Goose](https://github.com/aaif-goose/goose), using the subscriptions you already have. Two leads, Claude and Codex, each manage two staff members. You give them work from a task desk. They answer, delegate, review each other's results, and live in an isometric pixel office that grows as you use them.
 
-從本專案目錄執行 `npm run office`，在瀏覽器開啟 [Goose Office](http://127.0.0.1:4178/)。服務只監聽本機，使用現有 Goose 的 Claude ACP 與 ChatGPT Codex 訂閱登入。像素辦公室由 Canvas 在瀏覽器繪製，可以在只有 CPU 的電腦使用。每次實際規劃、委派及審閱都會使用所選主管的訂閱額度。
+An optional **Slack bridge** puts the same two agents in a private Slack channel, each with its own bot identity.
 
-在交辦台選 Claude、Codex 或雙主管，送出任務後可在同一討論串追問。Claude 帶研究員 Mira 和審閱員 Theo，Codex 帶工程師 Finn 和測試員 Nova。子代理是獨立的 Goose 回合，沿用該組主管的訂閱。主管可親自回覆，或選擇員工、分派事項並審閱成果。交辦台左下角可選專案資料夾和權限：「僅對話」不使用工具，「工作區」可在專案資料夾內讀寫與執行指令，「完整存取權」可存取網路和電腦上的任何檔案。兩位主管在網頁上的主機工作依序執行。
+> [!NOTE]
+> Everything runs on your computer. The web app only listens on `127.0.0.1`, keeps its data in `.data/`, and signs in with your own Claude and ChatGPT subscriptions. Every real task uses your subscription quota.
 
-對話支援 Markdown 粗體、清單、表格、連結與程式碼。執行中的工作紀錄會顯示旋轉圓環，展開後可看各回合、工具事件與耗時，結束後仍可查看紀錄。從「任務紀錄」按對話右上角的返回箭頭，會帶著目前的網頁任務和草稿回到辦公室，可在原任務串續辦。已授權的本機任務可將產出放進該任務的 `.data/office-files` 子資料夾，用 `[成果檔名](office-file:成果檔名)` 回傳下載連結。常用圖片、影片與音訊格式也會在對話裡提供預覽。
+## Contents
 
-交辦台的「附件」支援 PNG、JPEG、WebP、PDF、TXT、Markdown、CSV 和 JSON。也可在訊息欄直接貼上截圖。一次最多 5 個檔案，單張圖片 7 MB、其他附件 10 MB，合計 20 MB。主管會收到圖片、擷取的文件文字，以及掃描 PDF 的部分頁面。送出的原檔可在任務對話下載。
+- [Features](#features)
+- [Quick start](#quick-start)
+- [Using the office](#using-the-office)
+- [The office game](#the-office-game)
+- [Settings](#settings)
+- [Slack bridge](#slack-bridge)
+- [Development](#development)
 
-「引用」可在本機搜尋舊任務的訊息。一次最多引用四則片段，送出時會保存片段，並在對話中提供原任務入口。引用內容作為資料交給主管。
+## Features
 
-在「任務紀錄 → 記憶與技能」選成員即可新增提案、核准、退回或封存。主管與員工也能在回覆時提出建議，待使用者核准。核准的記憶只給指定成員使用，技能須符合目前交辦的觸發詞才會載入。
+| | |
+| --- | --- |
+| **Two leads, four staff** | Claude leads Mira (research) and Theo (review); Codex leads Finn (engineering) and Nova (testing). Leads reply themselves, delegate to staff, or plan a workflow of up to six steps. |
+| **Real work, with permissions** | Pick a project folder and a permission mode per task: *Chat only*, *Workspace* (read, write and run commands in the folder) or *Full access*. |
+| **Attachments, citations, memory** | Attach images, PDFs and text files, paste screenshots, cite past tasks, and approve memories and skills for each team member. |
+| **A living office** | Seven isometric floors. Staff fidget at their desks, wander, visit each other, and invite colleagues to ping-pong, air hockey, pool or karaoke. |
+| **An office economy** | The quota you use earns funds. Buy snacks and gifts, furniture, arcade games and perks, and move up to bigger floors. |
+| **中文 / English** | Switch the whole interface between Traditional Chinese and English from the top bar. |
+| **Settings page** | Point the office at your Claude Code, Codex and Goose executables and adjust time limits without editing `.env`. |
+| **Subscription usage** | See how much of each subscription window you've used and when it resets. |
 
-「分工」可指定一位審閱主管、最多六個工序、各自的負責人和前置工序。主管也可在規劃時自行建立分工。跨組且互不依賴的純對話工序可並行，同一模型服務依序接單。使用本機工具的工序依序執行。失敗時，「分工看板」可以重試未完成的工序。服務重啟會接續純對話分工。執行中曾中斷的本機工序先標記待確認，保留完成的成果。
+## Quick start
 
-交辦台初始選定 Opus 5.5 · Medium 和 GPT-6.2 Sol · XHigh，之後會記住你在該瀏覽器選擇的模型與 Effort。若本機尚未偵測到原生 Codex 訂閱登入或模型不支援 XHigh，GPT-6.2 Sol 會顯示並使用 High。
-
-若本機原生 Codex 已用 ChatGPT 帳號登入，交辦台會顯示該模型實際支援、且 Goose 尚未支援的 `xhigh` 和 `max`。選擇這些等級時會用原生 Codex 處理此次交辦，包括分派、審閱與圖片。需要本機工具的交辦可寫入專案工作目錄和成果目錄。 [Codex 推理強度設定](https://learn.chatgpt.com/docs/config-file/config-reference)
-
-可使用路徑中的 Codex CLI、以 `OFFICE_CODEX_BIN` 指定執行檔，或在專案安裝已驗證的版本：
-
-```powershell
-npm install --prefix .tools/office-codex --save-exact @openai/codex@0.171.0
-node .tools/office-codex/node_modules/@openai/codex/bin/codex.js login
-```
-
-重新開啟登入面板並按「重新檢查」即可更新可用的 Effort。
-
-交辦框右下角的「訂閱用量」可查看目前帳號的已用百分比、重置時間，以及官方用量頁。Codex 讀取原生 Codex CLI 登入帳號。Claude 使用 Claude Code 的用量查詢，這兩項查詢都不會送出模型訊息。
-
-任務與對話存於 `.data/office.sqlite`。任務紀錄的 Slack 頁籤會讀取現有橋接器已存到本機的近期討論串。網頁交辦及回覆保存在辦公室；要繼續從 Slack 收訊，另開終端執行原有的 `npm start`。可用 `OFFICE_PORT` 更改網頁服務埠。
-
-### 辦公室經營
-
-辦公區是 2.5D 等角視角的像素辦公室：拖曳移動、滾輪或雙指縮放，也可用右下角的按鈕、方向鍵與 `+`、`-`、`0`。每一層樓都有自己的房間格局，同事會沿著走道走到白板、窗邊、休息區或你買的家具旁。
-
-Claude 與 Codex 每用掉 1% 訂閱額度，辦公室就賺進 $40，再乘上樓層、家具、福利與團隊士氣倍率。上方導覽列的「商店」分頁（或辦公區右上角的資金與商店按鈕）可以：
-
-- **道具**：茶、咖啡、珍奶、拉麵、甜點、午睡枕、按摩券等，送給成員可提升心情或精力；派對、香氛與員工旅遊會讓全員一起受益。每人有一樣最愛，效果 ×1.6。也可在成員卡下方直接送出。
-- **家具**：盆景、咖啡機、黑膠唱盤、魚缸、桌上足球、辦公室貓咪、噴泉、睡眠艙等。擺好之後會持續影響全員，同事閒暇時也會去使用。高級家具要先解鎖對應樓層。
-- **福利**：彈性工時、健身補助、寵物友善、年終分紅等制度，只需買一次，不佔擺放位置。
-- **樓層**：1F 暖木工作室、2F 工業風 Loft、3F 中世紀摩登、4F 森林中庭、5F 天際頂樓。越高的樓層越貴，收入倍率與加成也越高。
-
-工作會消耗額度，也會讓該組成員變累、變煩躁；心情與精力越好，士氣倍率越高（×0.8 到 ×1.25）。資金與情緒存於 `.data/office-economy.json`。
-
-首次使用時，點右上角的「登入」→「開始設定」。系統會沿用現有 Goose CLI 和 `npm ci` 安裝的官方 Claude Code。缺少相容的執行檔時，系統會將官方版本安裝到專案狀態目錄。兩個授權頁面會依序開啟，已有登入設定的帳號會跳過。
-
-請在官方授權頁面使用自己的訂閱帳號。授權後，登入面板會自動檢查狀態。關閉面板後可隨時再開，也可按「取消設定」。若作業系統不支援自動安裝，或授權需要其他步驟，可展開「手動登入」。登入狀態檢查不會送出模型請求。
-
-需要 Node.js 24 以上、Goose CLI、Claude Code CLI。專案以 Goose 1.60.2 及 `npm ci` 安裝的 ACP adapter 為基準。Windows 可以把官方 Goose ZIP 解壓到 `.tools/goose`，或把 `goose.exe` 加入 `PATH`。也可在 `.env` 用 `GOOSE_BIN` 指定完整路徑。 [Goose 官方發行版](https://github.com/aaif-goose/goose/releases/tag/v1.60.2)
+**You need:** Node.js 24 or later, a Claude subscription for Claude Code, and a ChatGPT subscription for Codex. Goose CLI and Claude Code can be installed for you on first run.
 
 ```powershell
+git clone https://github.com/danieltsai0423/goose-slack-agents.git
+cd goose-slack-agents
 npm ci
-Copy-Item .env.example .env
-npm run configure -- codex
+npm run office
 ```
 
-在 Goose 選擇 **Configure Providers → ChatGPT Codex**，用自己的 ChatGPT Plus 在瀏覽器登入。原版 Codex CLI 的登入不會填入這個 Goose profile。Claude 端使用已在原版 Claude Code 登入的 Claude 訂閱。若回報登入到期，執行 `claude auth login` 重新登入。
+Open **http://127.0.0.1:4178/** and click **Sign in → Start setup** at the top right. Goose Office installs any missing tools into the project's state folder and opens the official Claude and ChatGPT authorization pages in turn. Accounts that are already signed in are skipped, and checking sign-in never sends a model request.
 
-可以在 `.env` 以 `GOOSE_CODEX_MODEL` 或 `GOOSE_CLAUDE_MODEL` 指定完整模型 ID。`GOOSE_CLAUDE_EFFORT` 會把指定的推理強度傳給 Claude Code，留空時使用 Claude Code 的設定。編輯 `.env` 後重新啟動橋接器即可套用設定。 [Claude Code 模型設定](https://code.claude.com/docs/en/model-config)
+<details>
+<summary><b>Manual setup</b> (if automatic install isn't supported on your system)</summary>
 
-「執行：」預設從本專案的根目錄開始。用 `GOOSE_WORK_DIR` 指定其他起始目錄時，可以填絕對路徑或相對本專案的路徑。檔案與命令的實際存取範圍由啟動橋接器的系統帳號權限決定。
+- **Goose CLI:** the project is tested with [Goose 1.60.2](https://github.com/aaif-goose/goose/releases/tag/v1.60.2). On Windows, unzip it into `.tools/goose` or add `goose.exe` to `PATH`, or set the path on the **Settings** page.
+- **Codex for Goose:** run `npm run configure -- codex`, choose **Configure Providers → ChatGPT Codex**, and sign in with your ChatGPT account in the browser. A native Codex CLI sign-in doesn't carry over to this Goose profile.
+- **Claude:** sign in to Claude Code with your own subscription (`claude auth login`). Anthropic decides how third-party tools may use a Claude account — see [Logging in to your Claude account](https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account).
+- **Native Codex CLI (optional):** unlocks the `xhigh` and `max` effort levels that Goose doesn't support yet.
 
-以下可在設定 Slack 前執行，每個 smoke test 各跑一次模型請求：
+  ```powershell
+  npm install --prefix .tools/office-codex --save-exact @openai/codex@0.171.0
+  node .tools/office-codex/node_modules/@openai/codex/bin/codex.js login
+  ```
+
+To check a sign-in with one real model request each:
 
 ```powershell
 npm run smoke -- codex
 npm run smoke -- claude
 ```
 
-## Slack 設定
+</details>
 
-1. 在同一個 Slack workspace 建立私人頻道，例如 `#agent-lab`。選下列方式建立兩個 App。
-   - **用 API**　從 [Slack App 管理頁](https://api.slack.com/apps) 的 **Your App Configuration Tokens** 為目標 workspace 產生短效 token，在本機 `.env.slack-setup` 裡填 `SLACK_MANIFEST_TOKEN=...`，然後執行 `npm run slack:setup`。指令先驗證兩個 manifest，再建立 App 並顯示安裝頁面。App ID 保存在本機 `.data/slack-setup`，重跑會沿用已建立的 App。完成後可清除 `.env.slack-setup` 裡的短效 token。 [Slack Manifest API](https://docs.slack.dev/app-manifests/configuring-apps-with-app-manifests/)
-   - **用 Slack 管理頁**　選 **Create New App → From a manifest**，分別匯入 [Codex manifest](slack/codex.json) 和 [Claude manifest](slack/claude.json)。
-2. 在 Slack 確認安裝兩個 App，各自把 **Bot User OAuth Token** (`xoxb-…`) 填到 `.env` 的對應變數。
-3. 在 **Goose-Codex** App 的 Basic Information 建立有 `connections:write` 的 App-Level Token (`xapp-…`)，填入 `SLACK_CODEX_APP_TOKEN`。這個 App 透過 Socket Mode 接收私人頻道訊息。Goose-Claude 使用自己的 Bot token 回覆。
-4. 把兩個 App 都加入私人頻道。在 `.env` 填入該頻道的 ID 和你自己的 Slack member ID。請把 `.env` 保留在本機。
-5. 執行 `npm start`，看到已連線後，在頻道送出 `@all 各自介紹你能怎麼協助我`。
+## Using the office
 
-## 用法
+![Office view on the Neon Game Lab floor with the task desk on the right](docs/images/office-en.png)
 
-| 指令 | 行為 |
+1. **Pick who gets the task** on the task desk: Claude, Codex, or both leads. Choose a model and reasoning effort; the browser remembers your choice. Defaults are Opus 5.5 · Medium and GPT-6.2 Sol · XHigh (High if the native Codex CLI isn't signed in).
+2. **Choose a folder and permission** at the bottom left. *Chat only* uses no tools; *Workspace* works inside the project folder; *Full access* can reach the network and any file on your computer.
+3. **Send it.** Leads decide whether to answer directly or delegate. The work log shows each turn, tool use and timing while it runs. Ask follow-ups in the same thread.
+
+More tools on the task desk:
+
+- **Attach** — PNG, JPEG, WebP, PDF, TXT, Markdown, CSV and JSON. Up to 5 files: 7 MB per image, 10 MB per other file, 20 MB in total. You can also paste screenshots.
+- **Cite** — search past tasks and attach up to four snippets as reference material.
+- **Workflow** — up to six steps with owners and dependencies, reviewed by one lead at the end. Independent chat-only steps on different services run in parallel. If a step fails, retry it from the **workflow board**.
+- **Memory & skills** — propose, approve, reject or archive notes for each team member under **Tasks → Memory & skills**. Skills load only when a task matches their triggers.
+- **Results** — agents with tool access can save files under `.data/office-files/` and link them in the chat for download. Images, video and audio preview inline.
+
+Agents' replies support Markdown, including bold text, lists, tables, links and code. Tasks and conversations are stored in `.data/office.sqlite`.
+
+> [!IMPORTANT]
+> Claude and Goose runs have no sandbox: *Workspace* limits them only through instructions. The native Codex CLI uses its `workspace-write` and `danger-full-access` sandboxes. Use *Full access* only for tasks you trust.
+
+## The office game
+
+![Sky Campus: karaoke stage, pool table and board games in the courtyard, a garden on the right](docs/images/floor-campus.png)
+
+Between tasks, everyone has a life of their own. At their desks they sip tea, scroll their phones, think, stretch, doze when tired, or spin their chairs. They walk to the whiteboard, the window or the lounge, drop by a colleague's desk for a chat, and wave at people passing by. When a task arrives, they head straight back to their desk.
+
+**Funds.** Every 1% of subscription quota used earns $40, multiplied by your floor, furniture, perks and team morale. Work tires the team that did it, and better mood and energy raise morale from ×0.8 up to ×1.25.
+
+![The shop's furniture tab: the current layout with floor, large and wall spots, and the games catalog](docs/images/shop-zh.png)
+
+The **Shop** has four sections:
+
+- **Items** — tea, espresso, bubble tea, ramen, sweets, nap pillows and more, given to one person (everyone has a favorite worth ×1.6), or team events like a party or a hot-spring trip.
+- **Furniture** — a bonsai, espresso machine, aquarium, office cat, sleep pod and more, plus **ten games**. Single-player games include a claw machine, basketball machine, dance machine, VR and a racing simulator. The 2×2 games are ping-pong, air hockey, pool, karaoke and board games, and staff invite each other to play these together. Games only animate while someone is playing.
+- **Perks** — flexible hours, gym subsidy, pet-friendly office, year-end bonus. Buy once, keep forever.
+- **Floors** — the building has seven floors. Bigger floors cost more, earn more and fit more:
+
+| Floor | Size | Small / large / wall spots |
+| --- | --- | --- |
+| 1F Warm Wood Studio | 14 × 11 | 3 / 0 / 1 |
+| 2F Industrial Loft | 16 × 12 | 5 / 1 / 2 |
+| 3F Mid-century Modern | 18 × 13 | 6 / 1 / 2 |
+| 4F Neon Game Lab | 20 × 14 | 6 / 2 / 2 |
+| 5F Forest Atrium | 20 × 14 | 6 / 2 / 2 |
+| 6F Skyline Penthouse | 20 × 15 | 7 / 2 / 2 |
+| 7F Sky Campus | 24 × 17 | 8 / 3 / 3 |
+
+The starting studio has no room for 2×2 games. Anything that doesn't fit waits in storage and is unpacked automatically when you move up. Funds and moods are kept in `.data/office-economy.json`.
+
+**Controls.** Drag to pan, and scroll or pinch to zoom; the arrow keys, `+`, `−` and `0` work too. **Office life** in the floor header is the master switch for animation. It starts off if your system asks for reduced motion, and turning it on overrides that.
+
+## Settings
+
+![The settings page in English, with Claude, Codex and Goose cards](docs/images/settings-en.png)
+
+The **Settings** page in the top bar configures the three tools without touching `.env`. Values are saved to `.data/office-settings.json` on your computer and take priority over `.env`. Leave a field empty to fall back to `.env` or the built-in default. Each field says whether it applies immediately or after a restart.
+
+| Setting | Variable | Applies |
+| --- | --- | --- |
+| Claude Code executable | `CLAUDE_CODE_EXECUTABLE` | Immediately |
+| Codex CLI executable | `OFFICE_CODEX_BIN` | Immediately |
+| Codex config folder | `CODEX_HOME` | Immediately |
+| Goose CLI executable | `GOOSE_BIN` | Immediately |
+| Default working directory | `GOOSE_WORK_DIR` | After Office restart |
+| Chat turn limit (10–900 s) | `GOOSE_TURN_TIMEOUT_SECONDS` | After Office restart |
+| Tool turn limit (60–3600 s) | `OFFICE_HOST_TURN_TIMEOUT_SECONDS` | After Office restart |
+| Usage sync interval (0 or 60–86400 s) | `OFFICE_ECONOMY_SYNC_SECONDS` | After Office restart |
+| Slack default models and effort | `GOOSE_CLAUDE_MODEL`, `GOOSE_CODEX_MODEL`, `GOOSE_CLAUDE_EFFORT` | After Slack bridge restart |
+
+You can also set any of these in `.env` (see [`.env.example`](.env.example)), along with `OFFICE_PORT` to change the web port and `STATE_DIR` to move the data folder.
+
+## Slack bridge
+
+The bridge lets `Goose-Codex` and `Goose-Claude` reply in a private Slack channel, each as its own bot. A single process receives channel messages and records threads in SQLite. Goose only calls a model when an agent is mentioned or collaboration is turned on. The web office shows the bridge's saved threads read-only under **Tasks → Slack log**.
+
+| Agent | Goose provider | Account |
+| --- | --- | --- |
+| Goose-Codex | `chatgpt_codex` | ChatGPT sign-in in the bridge's own Goose profile |
+| Goose-Claude | `claude-acp` | Your Claude subscription, signed in to Claude Code on the same system account |
+
+<details>
+<summary><b>Set up the Slack apps</b></summary>
+
+1. Create a private channel in your workspace, for example `#agent-lab`. Then create the two apps in one of two ways:
+   - **With the API:** on the [Slack app page](https://api.slack.com/apps), generate an *App Configuration Token* for the workspace. Put `SLACK_MANIFEST_TOKEN=...` in a local `.env.slack-setup`, then run `npm run slack:setup`. It validates both manifests, creates the apps and shows the install pages. App IDs are kept in `.data/slack-setup`, so a rerun reuses them. Remove the short-lived token afterwards. ([Slack manifest API](https://docs.slack.dev/app-manifests/configuring-apps-with-app-manifests/))
+   - **In the Slack admin page:** **Create New App → From a manifest**, importing the [Codex manifest](slack/codex.json) and the [Claude manifest](slack/claude.json).
+2. Install both apps. Copy each app's **Bot User OAuth Token** (`xoxb-…`) into `.env`.
+3. In the **Goose-Codex** app, create an app-level token with `connections:write` (`xapp-…`) and put it in `SLACK_CODEX_APP_TOKEN`. That app receives channel messages over Socket Mode.
+4. Add both apps to the channel. Put the channel ID and your own Slack member ID in `.env`, and keep `.env` local.
+5. Run `npm start`. Once it's connected, send `@all introduce yourselves` in the channel.
+
+</details>
+
+| Message | What happens |
 | --- | --- |
-| 普通訊息 | 記錄脈絡。該 thread 開啟自主回覆後，兩個 Agent 會判斷是否有值得補充的內容。判斷本身會使用模型額度。 |
-| Slack 原生點名 `@Goose-Claude` 或 `@Goose-Codex` | 呼叫被點名的 Agent。兩個名字一起點則平行回答。 |
-| `@all 各自比較這兩個方案` | 兩個 Agent 平行讀取同一份快照，各自回覆。`@all` 直接打成文字。 |
-| Slack 原生點名 `@頻道 報數` 或 `@這裡 報數` | 在訊息開頭選擇 `@頻道` 或 `@這裡`，效果同 `@all`，會叫到兩位 Agent。Slack 也會依該點名設定通知頻道成員。 |
-| `@all 一起完成這個方案` | 開啟該 thread 的自主回覆。Claude 先回答，Codex 讀取 Claude 回覆後接力，每次觸發最多四輪。開頭也可用「協作」或「接力」。 |
-| `@Goose-Claude 執行：跑測試並回報結果` | 請在訊息開頭用 Slack 點名 Agent。被點名的 Agent 會使用主機工具執行，結果回到同一串。Goose-Codex 也可用相同方式點名。 |
-| `@Goose-Codex 執行：用 Summon 委派 1 個子代理檢查測試設定` | Goose-Codex 可以透過 Summon 把工作交給 Goose 子代理，再整理結果回到同一串。 |
-| `@all 執行：檢查這個專案並跑測試` | Claude 先執行，Codex 接著檢查結果並補做。 |
-| `!auto on` / `!auto off` | 開啟或關閉所在 thread 的自主回覆。 |
-| `!stop` | 關閉所在 thread 的自主回覆，停止執行中的模型程序並清掉排隊工作。已送出的 Slack 回覆會保留。 |
+| A normal message | Kept as context. If the thread has auto-replies on, each agent decides whether it has something to add, which uses model quota. |
+| `@Goose-Claude` or `@Goose-Codex` (Slack mention) | Calls that agent. Mention both to get parallel answers. |
+| `@all compare these two options` | Both agents read the same snapshot and reply in parallel. Type `@all` as plain text. `@channel` / `@here` at the start work the same way. |
+| `@all let's finish this together` | Turns on auto-replies for the thread. Claude answers first and Codex follows, up to four rounds per trigger. |
+| `@Goose-Claude 執行：run the tests and report` | Starting with the `執行：` (“run:”) prefix lets the mentioned agent use host tools. The result is posted to the same thread. |
+| `@all 執行：check this project and run the tests` | Claude runs first, then Codex checks the result and follows up. |
+| `!auto on` / `!auto off` | Turn auto-replies on or off for the thread. |
+| `!stop` | Turns auto-replies off, stops running model processes and clears the queue. |
 
-每個任務開一個 thread，後續留言、點名與停止指令都發在同一串。模型只收到該 thread 的首則與近期文字。Slack 補抓以 API 能讀取的內容為準，讀取失敗時使用 SQLite 記錄。重新啟動會保留已儲存的對話和自主模式設定。中斷的工作可以用一則新訊息再次啟動。
+Only the configured owner can give commands, and only in the configured channel. `執行：` (run) tasks use files and the shell with the bridge's system-account permissions, without per-step approval.
 
-`npm test` 會用模擬 Agent 驗證訊息隔離、雙點名、四輪上限、停止、編輯與刪除、冷啟動讀取和 Goose 輸出解析。測試不呼叫 Slack 或模型服務。
+## Development
+
+```powershell
+npm test
+```
+
+Tests use simulated agents and isolated databases, so they need no Slack, model or network access. For the architecture, data flow and where to change things, read the [handoff guide (AGENTS.md)](AGENTS.md).
+
+| Area | Where |
+| --- | --- |
+| Web pages, task desk, history | `office/index.html`, `office/app.js`, `office/style.css` |
+| Office scene, floors, people | `office/scene.js`, `office/iso-*.js`, `office/behavior.js`, `office/life.js` |
+| Shop and economy | `office/economy.js`, `office/office-shop.js`, `src/office-economy.mjs` |
+| Translations | `office/i18n.js`, `office/i18n-en.js` (English keyed by the Chinese source text) |
+| Server, tasks, models | `src/office-server.mjs`, `src/office-runtime.mjs`, `src/office-runner.mjs`, `src/goose.mjs` |
+| Slack bridge | `src/main.mjs`, `src/bridge.mjs`, `src/store.mjs` |
+
+**Never commit** `.env`, `.data/` or `.tools/`: they hold your sign-ins, conversations and downloaded tools, and `.gitignore` already excludes them.

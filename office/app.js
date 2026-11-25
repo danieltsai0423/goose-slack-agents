@@ -1,6 +1,9 @@
+// Loaded first so the page is translated before anything renders.
+import { currentLang, setLang } from './i18n.js';
 import { createOfficeScene } from './scene.js';
 import { personalities, summarizeBrief } from './life.js';
 import { mountWorkspaceTools } from './workspace-tools.js';
+import { mountSettingsPage } from './settings-page.js';
 import { mountSubscriptionUsage } from './subscription-usage.js';
 import { mountFolderPicker } from './folder-picker.js';
 import { mountAccessMode } from './access-mode.js';
@@ -32,6 +35,7 @@ const icons = {
   folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2l2 2.2h8.8A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   shop: '<path d="M4 9h16l-1.5 11h-13z M8 9V7a4 4 0 0 1 8 0v2"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3 M12 18.5v3 M2.5 12h3 M18.5 12h3 M5.3 5.3l2.1 2.1 M16.6 16.6l2.1 2.1 M5.3 18.7l2.1-2.1 M16.6 7.4l2.1-2.1"/>',
   shield: '<path d="M12 3 5 6v5.5c0 4.3 3 7.9 7 9.5 4-1.6 7-5.2 7-9.5V6z M12 8v5 M12 16.2h.01"/>'
 };
 const iconMarkup = name => '<svg viewBox="0 0 24 24">' + icons[name] + '</svg>';
@@ -107,6 +111,14 @@ function setTheme(theme) {
   themeColor.content = light ? '#f8fbf7' : '#11191e';
 }
 setTheme(getStore('theme'));
+const langToggle = $('lang-toggle');
+function renderLang() {
+  const lang = currentLang();
+  for (const option of langToggle.children) option.classList.toggle('on', option.dataset.lang === lang);
+  langToggle.title = lang === 'en' ? '切換為中文介面' : '切換為英文介面';
+}
+langToggle.addEventListener('click', () => { setLang(currentLang() === 'en' ? 'zh' : 'en'); renderLang(); });
+renderLang();
 themeToggle.addEventListener('click', () => {
   const theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
   setTheme(theme);
@@ -744,11 +756,12 @@ function renderChat(force=false) {
 function showView(next) {
   view=next;
   $('floor-view').hidden=next!=='floor';$('history-view').hidden=next!=='history';
-  $('shop-view').hidden=next!=='shop';
-  $('dispatch').hidden=next==='shop';
-  document.querySelector('.layout').classList.toggle('single',next==='shop');
+  $('shop-view').hidden=next!=='shop';$('settings-view').hidden=next!=='settings';
+  const wide=next==='shop'||next==='settings';
+  $('dispatch').hidden=wide;
+  document.querySelector('.layout').classList.toggle('single',wide);
   $('chat-new').hidden=next!=='floor';$('chat-return').hidden=next!=='history';
-  for(const [key,id] of [['floor','floor-nav'],['history','history-nav'],['shop','shop-nav']]){
+  for(const [key,id] of [['floor','floor-nav'],['history','history-nav'],['shop','shop-nav'],['settings','settings-nav']]){
     const b=$(id); b.classList.toggle('selected',key===next);
     if(key===next)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   }
@@ -909,6 +922,11 @@ loginCheck.onclick=async()=>{
   }
 };
 $('brand').onclick=$('floor-nav').onclick=()=>showView('floor');$('history-nav').onclick=()=>showView('history');$('shop-nav').onclick=()=>shop.open();
+const settingsPage=mountSettingsPage($('settings-view'));
+$('settings-nav').onclick=()=>{showView('settings');settingsPage.open();};
+// Deep links: /#history, /#shop and /#settings open that page.
+const openFromHash=()=>({'#history':()=>showView('history'),'#shop':()=>shop.open(),'#settings':()=>$('settings-nav').onclick()})[location.hash]?.();
+window.addEventListener('hashchange',openFromHash);
 for(const b of document.querySelectorAll('[data-source]'))b.onclick=()=>{source=b.dataset.source;renderList();};
 $('threads').onclick=e=>{const b=e.target.closest('[data-thread]');if(b)openThread(b.dataset.thread,source==='slack');};
 $('teams').onclick=e=>{const b=e.target.closest('[data-employee]');if(b)selectEmployee(b.dataset.employee);};
@@ -1005,7 +1023,7 @@ $('office-life-toggle').onclick=()=>{
   renderTeams();
 };
 renderLifeToggle();
-restoreDraft();renderState();
+restoreDraft();renderState();openFromHash();
 async function poll(){
   await refresh();
   const running=state.tasks.some(task=>active.has(task.status)||task.status==='queued');

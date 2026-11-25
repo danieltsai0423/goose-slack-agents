@@ -1,3 +1,5 @@
+// Settings saved from the Office page (default models, executables) apply to the Slack bridge too.
+import './office-settings.mjs';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { SocketModeClient } from '@slack/socket-mode';

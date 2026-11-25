@@ -18,9 +18,11 @@
         <button class="nav-action selected" id="floor-nav" aria-current="page"><i data-icon="floor"></i>辦公室</button>
         <button class="nav-action" id="history-nav"><i data-icon="history"></i>任務紀錄<span id="nav-count"></span></button>
         <button class="nav-action" id="shop-nav"><i data-icon="shop"></i>商店</button>
+        <button class="nav-action" id="settings-nav"><i data-icon="gear"></i>設定</button>
       </nav>
       <div class="topbar-end">
         <div class="head-stats" role="group" aria-label="辦公室狀態"><span><i class="light"></i>執行中 <b id="active-count">—</b></span><span><i class="light queue"></i>排隊中 <b id="queue-count">—</b></span></div>
+        <button class="lang-toggle" type="button" id="lang-toggle" aria-label="介面語言"><span data-lang="zh">中</span><span data-lang="en">EN</span></button>
         <button class="icon-button theme-toggle" type="button" id="theme-toggle" aria-label="亮色模式" aria-pressed="false" title="切換至亮色模式"><i data-icon="sun"></i></button>
         <button class="login-trigger" type="button" id="login-open" aria-haspopup="dialog"><i data-icon="login"></i>登入</button>
         <details class="service" id="service"><summary><span class="lamp"></span><span id="service-label">連線中</span><i data-icon="chev"></i></summary><div class="service-pop"><strong id="backend-name">本機工作區</strong><p id="backend-detail">正在取得服務狀態。</p></div></details>
@@ -80,6 +82,7 @@
           <div id="knowledge-entries"></div>
         </div>
       </section>
+      <section class="settings-page" id="settings-view" hidden aria-label="設定"></section>
       <section class="shop-page" id="shop-view" hidden aria-label="辦公室商店">
         <div class="panel shop-summary">
           <div class="shop-window"><canvas id="shop-office-preview" class="shop-office-preview" role="img" aria-label="目前的辦公室"></canvas><span class="floor-plaque" id="shop-floor-plaque"></span></div>

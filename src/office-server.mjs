@@ -1,3 +1,5 @@
+// Saved settings go into process.env before the modules below read it.
+import { officeSettings } from './office-settings.mjs';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
@@ -21,6 +23,7 @@ const staticFiles = new Map([
   ['/app.js', ['app.js', 'text/javascript']], ['/scene.js', ['scene.js', 'text/javascript']],
   ['/life.js', ['life.js', 'text/javascript']],
   ['/behavior.js', ['behavior.js', 'text/javascript']],
+  ['/i18n.js', ['i18n.js', 'text/javascript']], ['/settings-page.js', ['settings-page.js', 'text/javascript']], ['/i18n-en.js', ['i18n-en.js', 'text/javascript']],
   ['/attachment-types.js', ['attachment-types.js', 'text/javascript']],
   ['/workspace-tools.js', ['workspace-tools.js', 'text/javascript']],
   ['/folder-picker.js', ['folder-picker.js', 'text/javascript']],
@@ -57,7 +60,7 @@ async function readPayload(req, limit = 48000) {
 
 export function createOfficeServer({
   runtime, backend, onboarding, slackHistory, artifactDir, folders, usage = createOfficeUsage(),
-  economy = openOfficeEconomy(), economySyncMs = 300000, now = Date.now
+  economy = openOfficeEconomy(), economySyncMs = 300000, now = Date.now, settings = null
 }) {
   const stateNamespace = randomUUID();
   let stateRevision = 0, stateCache, syncedAt = 0, syncing = null;
@@ -128,6 +131,18 @@ export function createOfficeServer({
         if (path === '/api/folders/browse') return respond(res, 200, await folders.browse());
         if (!Object.hasOwn(body, 'path')) throw problem(400, '請選擇資料夾。');
         return respond(res, 200, folders.select(body.path));
+      }
+      if (path === '/api/settings') {
+        if (!settings) throw problem(404, '這個本機服務未提供設定。');
+        if (req.method === 'GET') return respond(res, 200, settings.snapshot());
+        if (req.method !== 'POST') throw problem(405, '不支援這個操作。');
+        if (origin !== 'http://' + host) throw problem(403, '請從本機辦公室頁面變更設定。');
+        const body = await readPayload(req, 16384);
+        const result = settings.save(body.values);
+        // Paths that apply right away change what the sign-in check finds.
+        usage.clear();
+        backend?.({ force: true })?.catch?.(() => {});
+        return respond(res, 200, result);
       }
       if (req.method === 'GET' && path === '/api/history/search') {
         return respond(res, 200, { results: runtime.searchHistory(searchParams.get('q')) });
@@ -258,7 +273,7 @@ async function start() {
     retryWorkflow: id => runtime.retryWorkflow(id)
   }, backend, onboarding, slackHistory: history, artifactDir,
   folders: openOfficeFolders({ file: join(dir, 'office-folders.json'), defaultDir: executionDir }),
-  economy: openOfficeEconomy({ file: join(dir, 'office-economy.json') }), economySyncMs: syncSeconds * 1000 });
+  economy: openOfficeEconomy({ file: join(dir, 'office-economy.json') }), economySyncMs: syncSeconds * 1000, settings: officeSettings });
   await new Promise((ok, fail) => server.once('error', fail).listen(port, '127.0.0.1', ok));
   try {
     runtime = createOfficeRuntime({ file: join(dir, 'office.sqlite'), runAgent: runOfficeAgent, timeoutMs: seconds * 1000, hostTimeoutMs: hostSeconds * 1000, artifactDir });

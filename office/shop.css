@@ -235,6 +235,7 @@
   content: "▶ 送禮對象"; position: absolute; top: -9px; right: 10px; padding: 0 7px; border-radius: 3px;
   background: var(--team); color: #10171c; font-size: .66rem; font-weight: 800; line-height: 1.6;
 }
+:root[lang="en"] .staff-tile.on::after { content: "▶ Gift to"; }
 .staff-portrait {
   display: grid; place-items: end center; width: 52px; height: 70px; overflow: hidden; border-radius: 5px;
   border: 2px solid var(--s-edge); background: radial-gradient(circle at 50% 75%, color-mix(in srgb, var(--team) 40%, transparent), transparent 70%), var(--s-well);
