@@ -29,6 +29,7 @@ An optional **Slack bridge** puts the same two agents in a private Slack channel
 - [Settings](#settings)
 - [Slack bridge](#slack-bridge)
 - [Development](#development)
+- [Credits](#credits)
 - [License](#license)
 
 ## Features
@@ -38,6 +39,9 @@ An optional **Slack bridge** puts the same two agents in a private Slack channel
 | **Two leads, four staff** | Claude leads Mira (research) and Theo (review); Codex leads Finn (engineering) and Nova (testing). Leads reply themselves, delegate to staff, or plan a workflow of up to six steps. |
 | **Real work, with permissions** | Pick a project folder and a permission mode per task: *Chat only*, *Workspace* (read, write and run commands in the folder) or *Full access*. |
 | **Attachments, citations, memory** | Attach images, PDFs and text files, paste screenshots, cite past tasks, and approve memories and skills for each team member. |
+| **Anime chibi staff** | Hand-made anime-style pixel sprites: big eyes, layered bangs, and a signature look for each person (Claude's cowlick, Nova's pink twin tails, Finn's goggles…). |
+| **Illustrated look, day and night** | Fine ink outlines, a paper backdrop and puffy trees that change with the seasons. In the evening the office dims and monitors, lamps and arcade machines glow; switch between auto, day and night in the floor header. |
+| **Pseudo-3D furniture** | Plants and shop furniture are sprite-stacked voxel models that spin on shop cards like a product turntable. |
 | **A living office** | Seven isometric floors. Staff fidget at their desks, wander, visit each other, and invite colleagues to ping-pong, air hockey, pool or karaoke. |
 | **An office economy** | The quota you use earns funds. Buy snacks and gifts, furniture, arcade games and perks, and move up to bigger floors. |
 | **中文 / English** | Switch the whole interface between Traditional Chinese and English from the top bar. |
@@ -106,6 +110,8 @@ Agents' replies support Markdown, including bold text, lists, tables, links and 
 
 Between tasks, everyone has a life of their own. At their desks they sip tea, scroll their phones, think, stretch, doze when tired, or spin their chairs. They walk to the whiteboard, the window or the lounge, drop by a colleague's desk for a chat, and wave at people passing by. When a task arrives, they head straight back to their desk.
 
+![The Sky Campus at night: monitors, the karaoke stage and the VR zone glow, stars outside the windows](docs/images/floor-night.png)
+
 **Funds.** Every 1% of subscription quota used earns $40, multiplied by your floor, furniture, perks and team morale. Work tires the team that did it, and better mood and energy raise morale from ×0.8 up to ×1.25.
 
 ![The shop's furniture tab: the current layout with floor, large and wall spots, and the games catalog](docs/images/shop-zh.png)
@@ -129,7 +135,7 @@ The **Shop** has four sections:
 
 The starting studio has no room for 2×2 games. Anything that doesn't fit waits in storage and is unpacked automatically when you move up. Funds and moods are kept in `.data/office-economy.json`.
 
-**Controls.** Drag to pan, and scroll or pinch to zoom; the arrow keys, `+`, `−` and `0` work too. **Office life** in the floor header is the master switch for animation. It starts off if your system asks for reduced motion, and turning it on overrides that.
+**Controls.** Drag to pan, and scroll or pinch to zoom; the arrow keys, `+`, `−` and `0` work too. The day/night button in the floor header cycles **auto** (night from 7 pm to 6 am on your clock), **day** and **night**; trees and the view outside follow the season. **Office life** in the floor header is the master switch for animation. It starts off if your system asks for reduced motion, and turning it on overrides that.
 
 ## Settings
 
@@ -200,10 +206,18 @@ Tests use simulated agents and isolated databases, so they need no Slack, model 
 | Office scene, floors, people | `office/scene.js`, `office/iso-*.js`, `office/behavior.js`, `office/life.js` |
 | Shop and economy | `office/economy.js`, `office/office-shop.js`, `src/office-economy.mjs` |
 | Translations | `office/i18n.js`, `office/i18n-en.js` (English keyed by the Chinese source text) |
+| Characters and 3D furniture | `office/anime-people.js` (anime staff sprites), `office/stack.js` (sprite-stacking renderer), `office/voxel-furniture.js` |
 | Server, tasks, models | `src/office-server.mjs`, `src/office-runtime.mjs`, `src/office-runner.mjs`, `src/goose.mjs` |
 | Slack bridge | `src/main.mjs`, `src/bridge.mjs`, `src/store.mjs` |
 
 **Never commit** `.env`, `.data/` or `.tools/`: they hold your sign-ins, conversations and downloaded tools, and `.gitignore` already excludes them.
+
+## Credits
+
+- **Sprite stacking** — the pseudo-3D furniture follows the technique from [danielwh2/sprite-stacking](https://github.com/danielwh2/sprite-stacking) (MIT). The voxel models themselves are built in code in this repo.
+- **Shop item icons** — 16 sprites in `office/sprites/items/` come from [Pixel Art Atlas · 1.4M Synthetic Sprites](https://huggingface.co/datasets/Angais/pixel-art-atlas-1.4m) by Angais, released under CC0 1.0. They are **AI-generated** (Krea 2), and the [Krea 2 Community License](https://www.krea.ai/krea-2-licensing) applies to the generated outputs. See [`office/sprites/CREDITS.md`](office/sprites/CREDITS.md) for each file's source row.
+- **Illustrated style** — the ink outlines, paper backdrop, puffy seasonal trees and night lighting are our own code, inspired by the look of [Pocket City](https://april-zhu.com/pocketcity) by April Zhu. No Pocket City code or assets are used (it is licensed for non-commercial use only).
+- All other art — the anime staff, floors, walls, furniture drawings and effects — is drawn in code in this repo.
 
 ## License
 

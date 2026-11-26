@@ -2,7 +2,7 @@
 import { officeSettings } from './office-settings.mjs';
 import http from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -33,9 +33,16 @@ const staticFiles = new Map([
   ['/furniture.js', ['furniture.js', 'text/javascript']], ['/iso.js', ['iso.js', 'text/javascript']],
   ['/iso-layouts.js', ['iso-layouts.js', 'text/javascript']], ['/iso-world.js', ['iso-world.js', 'text/javascript']],
   ['/iso-themes.js', ['iso-themes.js', 'text/javascript']], ['/iso-props.js', ['iso-props.js', 'text/javascript']],
-  ['/iso-facilities.js', ['iso-facilities.js', 'text/javascript']],
+  ['/iso-facilities.js', ['iso-facilities.js', 'text/javascript']], ['/stack.js', ['stack.js', 'text/javascript']],
+  ['/voxel-furniture.js', ['voxel-furniture.js', 'text/javascript']], ['/anime-people.js', ['anime-people.js', 'text/javascript']],
   ['/office-shop.js', ['office-shop.js', 'text/javascript']]
 ]);
+// Pixel-art sprites shipped with the office (see office/sprites/CREDITS.md).
+for (const dir of ['sprites/items']) {
+  try {
+    for (const name of readdirSync(join(projectDir, 'office', dir))) if (/^[a-z-]+\.png$/.test(name)) staticFiles.set(`/${dir}/${name}`, [`${dir}/${name}`, 'image/png']);
+  } catch { /* No sprites in this checkout. */ }
+}
 function problem(statusCode, message) { return Object.assign(new Error(message), { statusCode }); }
 function respond(res, status, data) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -188,7 +195,7 @@ export function createOfficeServer({
       if (req.method === 'GET' && (staticFiles.has(path) || path === '/markdown-it.js')) {
         const [file, type] = staticFiles.get(path) || ['../node_modules/markdown-it/dist/markdown-it.min.js', 'text/javascript'];
         const content = await readFile(join(projectDir, 'office', file));
-        res.writeHead(200, { 'Content-Type': type + '; charset=utf-8' });
+        res.writeHead(200, { 'Content-Type': type.startsWith('image/') ? type : type + '; charset=utf-8' });
         return res.end(content);
       }
       const artifact = path.match(/^\/api\/tasks\/([a-z\d-]{36})\/files\/([^/]+)$/);

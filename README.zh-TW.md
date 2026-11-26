@@ -29,6 +29,7 @@ Goose Office 是一個本機網頁應用，透過 [Goose](https://github.com/aai
 - [設定](#設定)
 - [Slack 橋接器](#slack-橋接器)
 - [開發](#開發)
+- [素材來源](#素材來源)
 - [授權](#授權)
 
 ## 功能
@@ -38,6 +39,9 @@ Goose Office 是一個本機網頁應用，透過 [Goose](https://github.com/aai
 | **兩位主管、四位員工** | Claude 帶研究員 Mira 和審閱員 Theo，Codex 帶工程師 Finn 和測試員 Nova。主管可親自回覆、分派員工，或規劃最多六個工序的分工。 |
 | **能真的動手，權限由你決定** | 每則交辦可選專案資料夾與權限：「僅對話」、「工作區」（在資料夾內讀寫與執行指令）或「完整存取權」。 |
 | **附件、引用、記憶** | 附加圖片、PDF 與文字檔，直接貼上截圖，引用舊任務，並為每位成員核准記憶與技能。 |
+| **日系動漫 Q 版員工** | 手工設計的動漫風像素角色：大眼睛、層次瀏海，每個人有自己的特徵（Claude 的呆毛、Nova 的粉紅雙馬尾、Finn 的護目鏡⋯）。 |
+| **插畫風格與日夜** | 細墨線勾邊、紙張質感背景與隨季節變色的蓬鬆樹木。傍晚後辦公室會變暗，螢幕、檯燈和遊樂機台亮起；辦公區標題列可切換自動、白天、夜晚。 |
+| **偽 3D 家具** | 盆栽與商店家具是 sprite stacking 的體素模型，在商店卡片上像展示台一樣旋轉。 |
 | **會動的辦公室** | 七層等角視角樓層。員工會在座位做小動作、四處走動、找同事聊天，還會邀同事一起打桌球、空氣曲棍球、撞球或唱卡拉OK。 |
 | **辦公室經營** | 用掉的額度會變成資金，可以買零食禮物、家具、遊樂設施和福利，搬上更大的樓層。 |
 | **中文 / English** | 在頂部導覽列一鍵切換整個介面的繁體中文與英文。 |
@@ -106,6 +110,8 @@ npm run smoke -- claude
 
 沒有任務時，每個人都有自己的生活。在座位上會喝茶、滑手機、托腮思考、伸懶腰，累了會打瞌睡，或是轉轉椅子。他們也會走去白板、窗邊或休息區，到同事座位旁聊天，有人經過時揮揮手。一接到任務就會走回座位。
 
+![夜晚的空中園區：螢幕、卡拉OK舞台與 VR 區亮起，窗外是星空](docs/images/floor-night.png)
+
 **資金：** 每用掉 1% 訂閱額度賺 $40，再乘上樓層、家具、福利與團隊士氣倍率。工作會讓負責的那一組變累；心情和精力越好，士氣倍率越高（×0.8 到 ×1.25）。
 
 ![商店的家具分頁：目前擺設（地面、大型、牆面格位）與遊樂設施目錄](docs/images/shop-zh.png)
@@ -129,7 +135,7 @@ npm run smoke -- claude
 
 起始的工作室放不下 2×2 的大型設施。放不下的家具會先收進倉庫，搬上更大的樓層時自動擺出來。資金與心情存在 `.data/office-economy.json`。
 
-**操作：** 拖曳移動，滾輪或雙指縮放，方向鍵與 `+`、`−`、`0` 也可以。辦公區標題列的「**辦公室日常**」是動畫總開關：系統要求減少動態效果時預設關閉，手動打開後就會照常播放。
+**操作：** 拖曳移動，滾輪或雙指縮放，方向鍵與 `+`、`−`、`0` 也可以。辦公區標題列的日夜按鈕可在**自動**（依本機時間，晚上 7 點到早上 6 點是夜晚）、**白天**、**夜晚**之間切換；樹木與窗外景色會跟著季節變化。辦公區標題列的「**辦公室日常**」是動畫總開關：系統要求減少動態效果時預設關閉，手動打開後就會照常播放。
 
 ## 設定
 
@@ -200,10 +206,18 @@ npm test
 | 辦公室場景、樓層、人物 | `office/scene.js`、`office/iso-*.js`、`office/behavior.js`、`office/life.js` |
 | 商店與經營 | `office/economy.js`、`office/office-shop.js`、`src/office-economy.mjs` |
 | 翻譯 | `office/i18n.js`、`office/i18n-en.js`（以中文原文為鍵的英文對照） |
+| 角色與 3D 家具 | `office/anime-people.js`（動漫員工）、`office/stack.js`（sprite stacking 渲染器）、`office/voxel-furniture.js` |
 | 服務、任務、模型 | `src/office-server.mjs`、`src/office-runtime.mjs`、`src/office-runner.mjs`、`src/goose.mjs` |
 | Slack 橋接器 | `src/main.mjs`、`src/bridge.mjs`、`src/store.mjs` |
 
 **請勿提交** `.env`、`.data/` 或 `.tools/`：這些資料夾存著你的登入資料、對話與下載的工具，`.gitignore` 已排除它們。
+
+## 素材來源
+
+- **Sprite stacking**：偽 3D 家具採用 [danielwh2/sprite-stacking](https://github.com/danielwh2/sprite-stacking)（MIT）的技法，體素模型本身由本專案的程式碼建構。
+- **商店道具圖示**：`office/sprites/items/` 的 16 張圖來自 Angais 的 [Pixel Art Atlas · 1.4M Synthetic Sprites](https://huggingface.co/datasets/Angais/pixel-art-atlas-1.4m)，以 CC0 1.0 釋出。這些圖由 **AI 生成**（Krea 2），生成結果適用 [Krea 2 Community License](https://www.krea.ai/krea-2-licensing)。每張圖對應的資料列見 [`office/sprites/CREDITS.md`](office/sprites/CREDITS.md)。
+- **插畫風格**：墨線勾邊、紙張背景、四季樹木與夜間燈光是本專案自己的程式碼，畫風參考了 April Zhu 的 [Pocket City](https://april-zhu.com/pocketcity)。沒有使用任何 Pocket City 的程式碼或素材（它僅限非商業使用）。
+- 其餘美術（動漫員工、地板、牆面、家具繪製與特效）都由本專案的程式碼繪製。
 
 ## 授權
 

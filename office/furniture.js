@@ -425,7 +425,19 @@ const itemSprites = {
   aroma(p, x, y) { const { box } = p; box(x + 3, y + 6, 6, 6, '#7a9a8a'); box(x + 4, y + 7, 4, 4, '#a8c8b4'); box(x + 5, y + 4, 2, 2, '#c9a45c'); box(x + 5, y + 2, 1, 2, '#f2eadb90'); box(x + 7, y, 1, 3, '#f2eadb90'); box(x + 3, y + 1, 1, 2, '#f2eadb90'); },
   trip(p, x, y) { const { box, poly } = p; poly([[x, y + 10], [x + 5, y + 3], [x + 9, y + 8], [x + 12, y + 10]], '#7a9aa8'); box(x + 4, y + 3, 2, 1, '#ffffff'); box(x + 9, y + 1, 3, 3, '#f2a83a'); box(x, y + 10, 12, 2, '#5fa8c0'); box(x + 2, y + 9, 3, 1, '#e8f8fb'); }
 };
+// Shop items with a 16 × 16 sprite from the Pixel Art Atlas (office/sprites/CREDITS.md). Drawn centred on the
+// 12 × 12 icon box, so they overhang it by 2 px on each side; until an image loads the hand-drawn icon is used.
+const itemArt = {};
+for (const id of ['tea', 'espresso', 'macaron', 'pizza', 'pillow', 'book', 'massage', 'party', 'cocoa', 'boba', 'icecream', 'energy', 'fruit', 'ramen', 'aroma', 'trip']) {
+  if (typeof Image !== 'function') break;
+  const img = new Image();
+  img.src = `./sprites/items/${id}.png`;
+  itemArt[id] = img;
+}
+export const itemArtReady = id => Boolean(itemArt[id]?.complete && itemArt[id].naturalWidth);
+export function whenItemArt(id, fn) { const img = itemArt[id]; if (img && !itemArtReady(id)) img.addEventListener('load', fn, { once: true }); }
 export function drawItem(p, id, x, y) {
+  if (itemArtReady(id)) { p.ctx.imageSmoothingEnabled = false; p.ctx.drawImage(itemArt[id], Math.round(x) - 2, Math.round(y) - 2, 16, 16); return; }
   itemSprites[id]?.(p, x, y);
 }
 

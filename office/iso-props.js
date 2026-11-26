@@ -21,10 +21,31 @@ function disc(p, cx, cy, z, r, color) {
 function cylinder(p, cx, cy, z, r, h, color) {
   for (let k = 0; k < h; k++) disc(p, cx, cy, z + k, r, k === h - 1 ? color : shade(color, 0.78));
 }
-function leaves(p, sx, sy, r, palette, seed = 0) {
-  const blobs = [[0, 0, 1], [-0.6, 0.3, 0.7], [0.6, 0.35, 0.72], [-0.2, -0.55, 0.65], [0.35, -0.4, 0.6]];
-  blobs.forEach(([dx, dy, k], i) => p.oval(Math.round(sx + dx * r), Math.round(sy + dy * r), Math.max(2, Math.round(r * k)), Math.max(2, Math.round(r * k * 0.8)), palette[(i + seed) % palette.length]));
-  p.box(Math.round(sx - r * 0.3), Math.round(sy - r * 0.5), Math.max(2, Math.round(r * 0.5)), 1, '#a9c98a');
+// Foliage as a cluster of rounded puffs, back to front, each inked with a light upper-left: an illustrated
+// look in pixels. Outdoor trees follow the season (setSeason); potted plants stay green.
+let season = 'summer';
+export function setSeason(name) { season = name; }
+const seasonal = {
+  spring: ['#8cc56f', '#a6d684', '#79b462', '#f2b8c8'],
+  summer: ['#4d8a52', '#5f9a58', '#3f7a4a', '#6fa860'],
+  autumn: ['#e0a23a', '#d9822f', '#c9b24a', '#9fb45a'],
+  winter: ['#4a6e5a', '#5a7e68', '#3f6050', '#e9eef2']
+};
+function leaves(p, sx, sy, r, palette, seed = 0, outdoor = false) {
+  if (outdoor) palette = seasonal[season] || palette;
+  const blobs = [[-0.55, 0.25, 0.68], [0.6, 0.3, 0.7], [0, 0.4, 0.75], [-0.25, -0.45, 0.66], [0.4, -0.38, 0.62], [0, -0.05, 0.8]];
+  blobs.forEach(([dx, dy, k], i) => {
+    const bx = Math.round(sx + dx * r), by = Math.round(sy + dy * r);
+    const rr = Math.max(2, Math.round(r * k)), ry = Math.max(2, Math.round(r * k * 0.85));
+    let color = palette[(i + seed) % palette.length];
+    // Spring blossom and winter snow only as accents, never a whole puff underneath.
+    if ((season === 'spring' || season === 'winter') && outdoor && i < 3) color = palette[i % 3];
+    p.oval(bx, by, rr + 1, ry + 1, '#3b302c');
+    p.oval(bx, by, rr, ry, color);
+    p.oval(bx - Math.round(rr / 3), by - Math.round(ry / 3), Math.max(1, Math.round(rr / 2)), Math.max(1, Math.round(ry / 2)), shade(color, 1.16));
+    if (outdoor && season === 'spring' && i % 2 === 0) { p.box(bx - 1, by - 1, 1, 1, '#f6c6d4'); p.box(bx + 2, by + 1, 1, 1, '#f8d8e2'); }
+    if (outdoor && season === 'winter' && dy < 0) p.oval(bx, by - Math.round(ry / 2), Math.max(1, rr - 1), 1, '#f4f7fa');
+  });
 }
 const greens = ['#568459', '#649353', '#488262', '#5e8f57'];
 
@@ -45,8 +66,8 @@ export const props = {
     p.prism(o.x + 0.25, o.y + 0.25, 0, 0.5, 0.5, 6, tone('#8a7a6a'));
     const [sx, sy] = p.at(cx, cy, 6);
     p.box(sx - 1, sy - 22, 3, 22, '#6a4a32');
-    leaves(p, sx, sy - 30, 11, ['#3f6c51', '#4d7f58', '#5f9160', '#466f4a'], 1);
-    leaves(p, sx + 2, sy - 40, 8, ['#5f9160', '#78a565', '#4d7f58'], 2);
+    leaves(p, sx, sy - 30, 11, ['#3f6c51', '#4d7f58', '#5f9160', '#466f4a'], 1, true);
+    leaves(p, sx + 2, sy - 40, 8, ['#5f9160', '#78a565', '#4d7f58'], 2, true);
   },
   shelf(p, o, t) {
     const c = tone(t.wood[1]);

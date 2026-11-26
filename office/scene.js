@@ -1,12 +1,19 @@
 import { createBehaviors, errandPhase } from './behavior.js';
 import { facilities } from './iso-facilities.js';
+import { headingOf } from './stack.js';
+import { drawAnimeCharacter } from './anime-people.js';
+import { drawFurnitureStack } from './voxel-furniture.js';
+
+// Static pieces drawn as sprite-stacked voxel models instead of flat iso drawings.
+const stackedProps = new Set();
+const stackedFurniture = new Set(['bonsai', 'trophy', 'sculpture', 'telescope']);
 import { createOfficeLife } from './life.js';
 import { furnitureById, itemById } from './economy.js';
 import { drawBurst, drawItem } from './furniture.js';
 import { blitWall, createProjection, isoPainter, rasterFloor } from './iso.js';
 import { planFloor } from './iso-world.js';
-import { materials, paintWall, themes } from './iso-themes.js';
-import { drawCharacter, drawChair, drawDesk, drawEmote, furnitureIso, props as propDrawers, shade, tone } from './iso-props.js';
+import { materials, paintWall, setSky, themes } from './iso-themes.js';
+import { drawCharacter, drawChair, drawDesk, drawEmote, furnitureIso, props as propDrawers, setSeason, shade, tone } from './iso-props.js';
 
 // A 2.5D isometric office. The floor, back walls and rugs are drawn once per floor; desks, props,
 // partitions and people are depth-sorted every frame into a world-sized canvas, which the camera
@@ -40,11 +47,61 @@ const placeActions = {
   loungeLeft: { action: 'drink', prop: 'cup', emote: 'coffee' }, loungeRight: { action: 'drink', prop: 'cup' }
 };
 const turn = { sw: 'se', se: 'sw', ne: 'nw', nw: 'ne' };
-const spinCycle = ['sw', 'se', 'ne', 'nw'];
 const msPerTile = 430;
 const drinks = new Set(['tea', 'espresso', 'cocoa', 'boba', 'energy']);
 const foods = new Set(['macaron', 'pizza', 'icecream', 'fruit', 'ramen']);
 
+// The backdrop is drawing paper with a faint dot grid; the night floors get a dark paper.
+const darkPaper = new Set(['neon', 'penthouse']);
+function paintPaper(ctx, w, h, dpr, theme) {
+  const dark = darkPaper.has(theme) || nightNow;
+  ctx.fillStyle = dark ? '#1a1d2b' : '#f1eadb';
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = dark ? '#2a2f45' : '#d9ceb6';
+  const step = Math.round(16 * dpr), size = Math.max(1, Math.round(dpr));
+  for (let y = step / 2; y < h; y += step) for (let x = step / 2; x < w; x += step) ctx.fillRect(Math.round(x), Math.round(y), size, size);
+}
+let nightNow = false;
+
+// Day and night follow the local clock unless someone picks one; seasons follow the month.
+export function skyFor(mode = 'auto', date = new Date()) {
+  const hour = date.getHours(), month = date.getMonth() + 1;
+  const night = mode === 'night' || (mode === 'auto' && (hour >= 19 || hour < 6));
+  const season = month >= 3 && month <= 5 ? 'spring' : month >= 6 && month <= 8 ? 'summer' : month >= 9 && month <= 11 ? 'autumn' : 'winter';
+  return { night, season };
+}
+// Things that glow at night: [colour, radius in px, height in px].
+const glowing = {
+  'floor-lamp': ['#ffd89a', 46, 30], arcade: ['#b48cff', 34, 18], claw: ['#ff9ac8', 30, 22], 'dance-pad': ['#8cf0ff', 30, 10],
+  vr: ['#7af0f0', 30, 14], racing: ['#7fb8ff', 26, 16], aquarium: ['#7fd8ff', 30, 14], karaoke: ['#d08cff', 52, 20],
+  'espresso-bar': ['#ffcf8a', 24, 18], record: ['#ffd89a', 22, 12], popcorn: ['#ffd27a', 24, 16], 'sleep-pod': ['#9ff0ff', 24, 10]
+};
+function nightLight(ctx, floor, agents, placed, tick) {
+  const at = floor.proj.at;
+  ctx.save();
+  // Only darken what is drawn (source-atop), so the paper around the room stays as it is.
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = 'rgba(24, 30, 72, 0.46)';
+  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  const glow = ([sx, sy], color, radius, strength) => {
+    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, radius);
+    g.addColorStop(0, color + Math.round(strength * 255).toString(16).padStart(2, '0'));
+    g.addColorStop(1, color + '00');
+    ctx.fillStyle = g;
+    ctx.fillRect(sx - radius, sy - radius, radius * 2, radius * 2);
+  };
+  for (const [id, [x, y, dir]] of Object.entries(floor.layout.desks)) {
+    const busy = workingStates.has(agents.get(id)?.status);
+    const flicker = busy && tick % 6 === 0 ? 0.08 : 0;
+    glow(at(dir === 'y' ? x + 0.5 : x + 1, dir === 'y' ? y + 1 : y + 0.5, 22), '#8fc4ff', busy ? 42 : 30, (busy ? 0.55 : 0.34) - flicker);
+  }
+  for (const item of floor.plan.furniture) {
+    const spec = glowing[item.id];
+    if (spec) glow(at(item.x + item.size / 2, item.y + item.size / 2, spec[2]), spec[0], spec[1], 0.5);
+  }
+  for (const [slot, id] of Object.entries(placed)) if (id === 'neon' && slot.startsWith('w')) glow(at(1, 1, 40), '#ff8ad0', 60, 0.25);
+  ctx.restore();
+}
 function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 
 function rug(p, r) {
@@ -115,10 +172,18 @@ function buildFloor(floorId, placed = {}) {
     }
   }
   for (const prop of plan.props) {
+    if (stackedProps.has(prop.kind)) {
+      objects.push({ key: prop.x + prop.w / 2 + prop.y + prop.d / 2, draw: q => drawFurnitureStack(q, prop.kind, prop.x + 0.5, prop.y + 0.5, Math.PI / 2 + (prop.x * 7 + prop.y * 3) % 4) });
+      continue;
+    }
     const drawer = propDrawers[prop.kind];
     if (drawer) objects.push({ key: prop.x + prop.w / 2 + prop.y + prop.d / 2, draw: (q, tick) => drawer(q, prop, theme, tick, L.wallH) });
   }
   for (const item of plan.furniture) {
+    if (stackedFurniture.has(item.id)) {
+      objects.push({ key: item.x + item.y + item.size, draw: q => drawFurnitureStack(q, item.id, item.x + 0.5, item.y + 0.5) });
+      continue;
+    }
     const facility = facilities[item.id], drawer = facility || furnitureIso[item.id];
     if (drawer) objects.push({ key: item.x + item.y + item.size, draw: (q, tick, live) => drawer(q, item.x, item.y, tick, Boolean(live?.active.has(item.slot))) });
   }
@@ -136,7 +201,8 @@ function along(points, progress) {
   for (const { from, to, length } of segments) {
     if (remaining <= length) {
       const f = remaining / length;
-      return { x: from[0] + (to[0] - from[0]) * f, y: from[1] + (to[1] - from[1]) * f, facing: facingOf(to[0] - from[0], to[1] - from[1]) };
+      return { x: from[0] + (to[0] - from[0]) * f, y: from[1] + (to[1] - from[1]) * f, facing: facingOf(to[0] - from[0], to[1] - from[1]),
+        heading: Math.atan2(to[1] - from[1], to[0] - from[0]) };
     }
     remaining -= length;
   }
@@ -144,7 +210,19 @@ function along(points, progress) {
   return { x: last[0], y: last[1], facing: facingOf(last[0] - prev[0], last[1] - prev[1], 'sw') };
 }
 
-function drawFrame(world, floor, { agents, poses, moods, selected, hovered, tick, effects, now, deskProp, looks = new Map(), active = new Set() }) {
+// People turn toward where they're going instead of snapping between four directions.
+const TURN_RATE = Math.PI * 3; // radians per second
+function easeHeading(headings, id, target, dt) {
+  const current = headings.get(id);
+  if (current == null || !dt) { headings.set(id, target); return target; }
+  const diff = ((target - current) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+  const next = current + Math.sign(diff) * Math.min(Math.abs(diff), TURN_RATE * dt);
+  headings.set(id, next);
+  return next;
+}
+
+function drawFrame(world, floor, { agents, poses, moods, selected, hovered, tick, effects, now, deskProp, looks = new Map(), active = new Set(),
+  headings = new Map(), dt = 0, flat = false, night = false, placed = {} }) {
   const ctx = world.getContext('2d');
   ctx.clearRect(0, 0, world.width, world.height);
   ctx.drawImage(floor.base, 0, 0);
@@ -165,12 +243,18 @@ function drawFrame(world, floor, { agents, poses, moods, selected, hovered, tick
         const [sx, sy] = q.at(fx, fy);
         const look = looks.get(id) || {};
         const held = look.prop ?? pose?.prop ?? deskProp(id, agent);
-        const { top } = drawCharacter(q, variants[id], Math.round(sx), Math.round(sy), {
-          facing: look.facing ?? (pose ? pose.facing : seat.facing), seated: !pose, busy, tick,
+        const facing = look.facing ?? (pose ? pose.facing : seat.facing);
+        const action = look.action ?? (pose?.moving ? 'walk' : pose?.action ?? (!pose && held ? propActions[held] : null));
+        const heading = easeHeading(headings, id, look.heading ?? (pose?.moving ? pose.heading : null) ?? headingOf[facing], dt);
+        // The anime sprites face one of four ways: the nearest to the smoothly turning heading.
+        const turned = ['se', 'sw', 'nw', 'ne'][((Math.round(heading / (Math.PI / 2)) % 4) + 4) % 4];
+        // The sleep pod pose and the flat style keep the original 2D figure.
+        const draw = flat || action === 'lie' ? drawCharacter : drawAnimeCharacter;
+        const { top } = draw(q, variants[id], Math.round(sx), Math.round(sy), {
+          facing: turned, seated: !pose, busy, tick,
           emoteBusy: Boolean(look.emote ?? (pose?.moving ? null : pose?.emote)),
           emotion: moods[id] || 'calm', lead: id === 'claude' || id === 'codex', team: teamOf(id), prop: held,
-          action: look.action ?? (pose?.moving ? 'walk' : pose?.action ?? (!pose && held ? propActions[held] : null)),
-          z: look.z ?? pose?.z ?? 0, hop: look.hop || 0
+          action, z: look.z ?? pose?.z ?? 0, hop: look.hop || 0
         });
         anchors.set(id, { x: sx, y: sy, top, emote: look.emote ?? (pose?.moving ? null : pose?.emote) });
         if (selected === id || hovered === id) {
@@ -183,6 +267,7 @@ function drawFrame(world, floor, { agents, poses, moods, selected, hovered, tick
   }
   list.sort((a, b) => a.key - b.key);
   for (const item of list) item.draw(p, tick, { active });
+  if (night) nightLight(ctx, floor, agents, placed, tick);
   for (const anchor of anchors.values()) if (anchor.emote) drawEmote(p, anchor.emote, anchor.x, anchor.top, tick);
   for (const effect of effects) {
     const anchor = anchors.get(effect.id);
@@ -203,6 +288,9 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
   let world = makeCanvas(floor.proj.width, floor.proj.height);
   let agents = new Map(), roster = [], tasks = [], lifeEnabled = true, selected = null, hovered = null;
   let tick = 0, timer = null, raf = 0, visible = true, dead = false, frame = null, previousLife = '';
+  const headings = new Map();
+  let lastRender = 0;
+  let daylight = 'auto', skyCheckedAt = 0;
   let poses = new Map(), anchors = new Map(), effects = [];
   const routes = new Map();
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -214,7 +302,9 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
   const camera = { x: floor.proj.width / 2, y: floor.proj.height / 2, zoom: 0, fit: 1, cssW: 1, cssH: 1, dpr: 1 };
 
   function rebuild() {
-    const key = JSON.stringify([floorId, placed]);
+    const { night, season } = skyFor(daylight);
+    setSky({ night, season }); setSeason(season); nightNow = night;
+    const key = JSON.stringify([floorId, placed, night, season]);
     if (key === layoutKey) return;
     const changedFloor = !layoutKey || JSON.parse(layoutKey)[0] !== floorId;
     layoutKey = key;
@@ -397,7 +487,7 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     const elapsed = now - act.start;
     switch (act.action) {
       case 'look': return { facing: Math.floor(elapsed / 900 + act.seed * 4) % 3 === 1 ? turn[seat.facing] : seat.facing };
-      case 'spin': return { facing: spinCycle[(spinCycle.indexOf(seat.facing) + Math.floor(elapsed / 170)) % 4] };
+      case 'spin': return { heading: headingOf[seat.facing] + elapsed / 1000 * Math.PI * 2.4 };
       case 'sip': return { action: 'drink', prop: 'cup' };
       case 'read': return { action: 'read', prop: 'book' };
       default: return { action: act.action, emote: act.emote };
@@ -474,6 +564,7 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
       if (pose) poses.set(id, pose);
     }
     tick = Math.floor(now / 150);
+    if (now - skyCheckedAt > 60000) { skyCheckedAt = now; rebuild(); }
     // Facilities animate only while someone is playing them.
     const active = new Set();
     for (const act of acts.values()) {
@@ -484,9 +575,12 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     const liveTick = still() ? 0 : tick;
     anchors = drawFrame(world, floor, {
       agents, poses, moods, selected, hovered, tick: liveTick, effects, now, looks: looksFor(now), active,
+      headings, dt: lastRender ? Math.min(0.25, (now - lastRender) / 1000) : 0,
+      night: nightNow, placed,
       deskProp: (id, agent) => animateLife && agent.status === 'idle' && !frame?.actors.includes(id) && !acts.has(id) &&
         (now + variants[id] * 2090) % (5100 + variants[id] * 1140) < 1250 ? deskProps[variants[id]] : null
     });
+    lastRender = now;
     const phase = frame && (frame.elapsed < frame.walk ? 'out' : frame.elapsed >= frame.endsAt - frame.start - frame.walk ? 'back' : 'activity');
     const lifeKey = frame ? [frame.id, phase, frame.speech?.key].join(':') : '';
     if (previousLife !== lifeKey) {
@@ -501,8 +595,7 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     const d = camera.dpr, s = camera.zoom * d;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = floor.theme.backdrop;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    paintPaper(ctx, canvas.width, canvas.height, d, floor.layout.theme);
     const dx = Math.round(canvas.width / 2 - camera.x * s), dy = Math.round(canvas.height / 2 - camera.y * s);
     ctx.drawImage(world, dx, dy, Math.round(world.width * s), Math.round(world.height * s));
     const tip = hovered && agents.get(hovered);
@@ -604,6 +697,7 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     if (state.agents) { roster = Array.isArray(state.agents) ? state.agents : Object.values(state.agents || {}); agents = new Map(roster.map(a => [a.id, a])); }
     if (state.tasks) tasks = state.tasks;
     if (typeof state.lifeEnabled === 'boolean') lifeEnabled = state.lifeEnabled;
+    if (state.daylight && state.daylight !== daylight) { daylight = state.daylight; rebuild(); }
     if ('selected' in state || 'selectedId' in state) selected = state.selected ?? state.selectedId ?? null;
     if (state.economy) {
       floorId = state.economy.floor || 1;

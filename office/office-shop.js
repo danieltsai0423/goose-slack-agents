@@ -2,9 +2,11 @@ import {
   FUNDS_PER_PERCENT, emotions, favorites, firstFloorFor, fits, floorById, floors, furniture, furnitureById, itemById, itemEffect, items, perks, slotsFor
 } from './economy.js';
 import { painter } from './pixel-kit.js';
-import { drawFurniture, drawItem, drawPerk, drawWallArt, drawWallArtLive } from './furniture.js';
-import { drawCharacter } from './iso-props.js';
+import { drawFurniture, drawItem, drawPerk, drawWallArt, drawWallArtLive, whenItemArt } from './furniture.js';
 import { paintFloorPreview, variants } from './scene.js';
+import { drawAnimeCharacter } from './anime-people.js';
+import { furnitureSprite, models as voxelModels } from './voxel-furniture.js';
+import { DIRECTIONS } from './stack.js';
 
 const money = value => '$' + Math.round(value || 0).toLocaleString('en-US');
 const slotName = id => ({ f: '地面', g: '大型', w: '牆面' })[id[0]] + ' · ' + id.slice(1);
@@ -29,7 +31,12 @@ function sprite(width, height, scale, draw) {
 const paintRows = (rows, colors) => p => rows.forEach((row, y) => [...row].forEach((c, x) => {
   if (colors[c]) p.box(x, y, 1, 1, colors[c]);
 }));
-export const itemIcon = (id, scale = 2) => sprite(12, 12, scale, p => drawItem(p, id, 0, 0));
+// 16 × 16 so atlas sprites fit; redrawn once the sprite image arrives.
+export const itemIcon = (id, scale = 2) => {
+  const canvas = sprite(16, 16, scale, p => drawItem(p, id, 2, 2));
+  whenItemArt(id, () => { const p = painter(canvas); p.ctx.clearRect(0, 0, 16, 16); drawItem(p, id, 2, 2); });
+  return canvas;
+};
 
 // Pixel icons for the two stats: a heart for 心情 and a lightning bolt for 精力.
 const statArt = {
@@ -92,14 +99,55 @@ export function moodFace(emotion, scale = 2) {
 }
 const perkIcon = id => sprite(12, 12, 3, p => drawPerk(p, id, 0, 0));
 function furnitureIcon(entry, scale = 2) {
-  return entry.kind === 'wall'
-    ? sprite(24, 30, scale, p => { drawWallArt(p, entry.id, 12, 2); drawWallArtLive(p, entry.id, 12, 2, 1); })
-    : sprite(42, 26, scale, p => drawFurniture(p, entry.id, 21, 25));
+  if (entry.kind === 'wall') return sprite(24, 30, scale, p => { drawWallArt(p, entry.id, 12, 2); drawWallArtLive(p, entry.id, 12, 2, 1); });
+  if (voxelModels[entry.id] && scale >= 2) return turntable(entry.id);
+  return sprite(42, 26, scale, p => drawFurniture(p, entry.id, 21, 25));
 }
-// The same chibi the office draws, standing and facing the viewer.
+// Sprite-stacked furniture slowly turning on the shop card, like a product turntable.
+const turning = new Set();
+let turnTimer = null, turnStep = 0;
+function turntable(id) {
+  // Crop to the highest point the model reaches at any angle, then zoom by a whole number so pixels stay square.
+  let first = null, top = Infinity;
+  for (let dir = 0; dir < DIRECTIONS; dir += 4) {
+    const sprite = furnitureSprite(id, dir / DIRECTIONS * Math.PI * 2);
+    first ??= sprite;
+    top = Math.min(top, sprite.ay + sprite.top);
+  }
+  const crop = Math.max(0, top - 2);
+  const canvas = document.createElement('canvas');
+  canvas.width = first.canvas.width; canvas.height = first.canvas.height - crop;
+  canvas.className = 'shop-sprite turntable';
+  canvas.setAttribute('aria-hidden', 'true');
+  const zoom = Math.max(2, Math.min(5, Math.floor(Math.min(120 / canvas.width, 74 / canvas.height))));
+  canvas.style.width = canvas.width * zoom + 'px';
+  canvas.style.height = canvas.height * zoom + 'px';
+  canvas.dataset.model = id;
+  canvas.dataset.crop = String(crop);
+  canvas.dataset.offset = String(Math.floor(Math.random() * DIRECTIONS));
+  paintTurn(canvas);
+  turning.add(canvas);
+  turnTimer ??= setInterval(() => {
+    turnStep++;
+    for (const node of turning) {
+      if (!node.isConnected) { turning.delete(node); continue; }
+      if (node.offsetParent && !matchMedia('(prefers-reduced-motion: reduce)').matches) paintTurn(node);
+    }
+    if (!turning.size) { clearInterval(turnTimer); turnTimer = null; }
+  }, 140);
+  return canvas;
+}
+function paintTurn(canvas) {
+  const dir = (turnStep + Number(canvas.dataset.offset)) % DIRECTIONS;
+  const sprite = furnitureSprite(canvas.dataset.model, dir / DIRECTIONS * Math.PI * 2);
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(sprite.canvas, 0, -Number(canvas.dataset.crop));
+}
 function portrait(id, emotion, scale = 2) {
-  return sprite(22, 32, scale, p => drawCharacter(p, variants[id] ?? 0, 11, 30, {
-    facing: 'sw', emotion, team: teamOf(id), lead: id === 'claude' || id === 'codex'
+  // The anime chibi the office draws, facing the viewer.
+  return sprite(30, 40, scale * 0.8, p => drawAnimeCharacter(p, variants[id] ?? 0, 15, 38, {
+    facing: 'se', emotion, team: teamOf(id), lead: id === 'claude' || id === 'codex'
   }));
 }
 

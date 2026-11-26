@@ -95,6 +95,8 @@ function putStore(key, value) { try {if(value == null) localStorage.removeItem('
 // reduced-motion setting; once someone flips it, their choice wins over the system.
 let lifeEnabled = typeof getStore('office-life') === 'boolean' ? getStore('office-life') : !matchMedia('(prefers-reduced-motion: reduce)').matches;
 let lifeFrame = null;
+// Day / night in the office: follows the local clock (auto), or stays day or night.
+let daylight = ['auto', 'day', 'night'].includes(getStore('daylight')) ? getStore('daylight') : 'auto';
 const savedModels = {...getStore('models')};
 const effortLabels = {none:'Off',low:'Low',medium:'Medium',high:'High',xhigh:'XHigh',max:'Max'};
 let previousModelMenu = '';
@@ -362,7 +364,7 @@ function renderTeams() {
   $('selection-hint').textContent=person ? person.name+' · '+(person.kind==='manager'?'主管':titleFor(person.manager)+' 組 / '+person.role)+' · '+readable(person.status) : '點選角色查看成員 · 拖曳移動、滾輪縮放';
   renderPersonality(staff);
   const economy=shop?.economy;
-  const data={agents:staff,selected,lifeEnabled,economy:economy&&{floor:economy.floor,placed:economy.placed,agents:economy.agents},tasks:state.tasks.map(({threadId,manager,workerId,status,createdAt,updatedAt,text})=>
+  const data={agents:staff,selected,lifeEnabled,daylight,economy:economy&&{floor:economy.floor,placed:economy.placed,agents:economy.agents},tasks:state.tasks.map(({threadId,manager,workerId,status,createdAt,updatedAt,text})=>
     ({threadId,manager,workerId,status,createdAt,updatedAt,brief:summarizeBrief(text)}))};
   const sceneKey=JSON.stringify(data);
   if(scene && previousScene!==sceneKey){
@@ -1022,6 +1024,19 @@ $('office-life-toggle').onclick=()=>{
   renderLifeToggle();
   renderTeams();
 };
+function renderDaylight(){
+  const labels={auto:'自動',day:'白天',night:'夜晚'};
+  $('daylight-label').textContent=labels[daylight];
+  $('daylight-toggle').dataset.mode=daylight;
+  $('daylight-toggle').title={auto:'日夜：跟隨本機時間（晚上 7 點到早上 6 點是夜晚）',day:'日夜：固定白天',night:'日夜：固定夜晚'}[daylight];
+}
+$('daylight-toggle').onclick=()=>{
+  daylight={auto:'day',day:'night',night:'auto'}[daylight];
+  putStore('daylight',daylight);
+  renderDaylight();
+  renderTeams();
+};
+renderDaylight();
 renderLifeToggle();
 restoreDraft();renderState();openFromHash();
 async function poll(){

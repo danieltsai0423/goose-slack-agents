@@ -855,3 +855,8 @@ button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit;bo
 .settings-empty{color:#a7b4b8}
 [data-theme="light"] .setting-control input,[data-theme="light"] .setting-control select{background:#fff}
 [data-theme="light"] :is(.settings-head p,.settings-blurb,.setting-help,.settings-status){color:var(--soft)}
+
+/* Day / night switch in the floor header */
+.daylight-toggle .sky-icon{width:10px;height:10px;border-radius:50%;background:#f2c94c;box-shadow:0 0 0 2px #f2c94c33;flex:none}
+.daylight-toggle[data-mode="night"] .sky-icon{background:#c8d0f0;box-shadow:inset -3px -1px 0 #3a4266}
+.daylight-toggle[data-mode="auto"] .sky-icon{background:linear-gradient(90deg,#f2c94c 50%,#5a6aa8 50%)}

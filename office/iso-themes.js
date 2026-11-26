@@ -228,12 +228,29 @@ export const themes = {
 };
 for (const [name, theme] of Object.entries(themes)) theme.view = views[name];
 
+// What the windows show right now: night swaps in a dark sky with stars, a moon and lit windows outside;
+// the season changes the ground and trees (and puts snow on roofs in winter).
+let sky = { night: false, season: 'summer' };
+export function setSky(next) { sky = { ...sky, ...next }; }
+const seasonView = {
+  spring: { ground: '#9cc88a', groundLight: '#f2c4d2', trees: ['#6fa860', '#8cc56f'] },
+  summer: {},
+  autumn: { ground: '#c9a052', groundLight: '#e0b86a', trees: ['#c9762f', '#e0a23a'] },
+  winter: { ground: '#e4eaee', groundLight: '#ffffff', trees: ['#3f6050', '#4a6e5a'], snow: true }
+};
+function viewFor(theme) {
+  const v = { ...theme.view, ...(seasonView[sky.season] || {}) };
+  if (!sky.night || theme.view?.stars) return v;
+  return { ...v, sky: ['#141a36', '#232a52', '#10142a'], clouds: false, stars: true, moon: 30, lit: '#f3d38a', dark: '#3a4266',
+    bodies: ['#232a45', '#2a3150'], side: '#1b2138', ground: v.ground ? '#2a3a3a' : v.ground, groundLight: v.ground ? '#3a4a48' : v.groundLight };
+}
+
 const TILE = 16; // elevation pixels per tile along a wall
 
 function windowFeature(p, t, x, w, H, seed) {
   const top = t.tall ? 6 : 9, bottom = t.tall ? H - 6 : H - 18, h = bottom - top;
   p.box(x - 2, top - 2, w + 4, h + 4, t.frame[0]);
-  windowView(p, x, top, w, h, seed, t.view);
+  windowView(p, x, top, w, h, seed, viewFor(t));
   for (let xx = x + Math.floor(w / 3); xx < x + w - 2; xx += Math.max(8, Math.floor(w / 3))) p.box(xx, top, 1, h, t.frame[0]);
   if (!t.tall) p.box(x, top + Math.floor(h * 0.35), w, 1, t.frame[0]);
   if (t.arch) for (let i = 0; i < 5; i++) { const inset = [6, 4, 2, 1, 1][i]; p.box(x - 2, top - 2 + i, inset, 1, '#eedcb0'); p.box(x + w + 2 - inset, top - 2 + i, inset, 1, '#eedcb0'); }

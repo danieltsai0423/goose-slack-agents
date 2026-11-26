@@ -370,5 +370,7 @@ export const dictionary = {
   '請從清單選擇。': 'Choose from the list.', '模型名稱只能包含英數字與 . : - / _。': 'Model names may only contain letters, digits and . : - / _.', '請輸入完整路徑。': 'Enter a full path.',
   '找不到這個路徑。': 'Path not found.', '這不是資料夾。': 'That’s not a folder.', '這不是執行檔。': 'That’s not a file.', '設定格式錯誤。': 'Invalid settings.', '未知的設定項目。': 'Unknown setting.',
   '這個本機服務未提供設定。': 'This local service doesn’t offer settings.', '請從本機辦公室頁面變更設定。': 'Change settings from the local office page.',
+  '自動': 'Auto', '白天': 'Day', '夜晚': 'Night', '日夜：跟隨本機時間（晚上 7 點到早上 6 點是夜晚）': 'Day / night: follows your clock (night from 7 pm to 6 am)',
+  '日夜：固定白天': 'Day / night: always day', '日夜：固定夜晚': 'Day / night: always night',
   '分工需要 1 至 6 個工序。': 'A workflow needs 1 to 6 steps.', '請確認工序編號、負責人、工作說明和依賴。': 'Check the step IDs, owners, instructions and dependencies.', '依賴的工序不存在。': 'A dependency doesn’t exist.'
 };

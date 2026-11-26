@@ -41,7 +41,25 @@ export function fillPoly(ctx, pts, color) {
   }
 }
 
-export function isoPainter(ctx, proj) {
+// Ink: an illustrated look with a fine warm outline around solid boxes (silhouette) and lighter lines on their
+// front edges. Off for glass (colours with alpha), very small pieces, and when a box asks for `ink: false`.
+export const INK = '#3b302c', INK_SOFT = '#3b302c66';
+function inkLine(ctx, [x0, y0], [x1, y1], color) {
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  ctx.fillStyle = color;
+  for (;;) {
+    ctx.fillRect(x0, y0, 1, 1);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x0 += sx; }
+    if (e2 <= dx) { err += dx; y0 += sy; }
+  }
+}
+const translucent = c => typeof c === 'string' && c.length > 7;
+
+export function isoPainter(ctx, proj, { ink = true } = {}) {
   const box = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
   const poly = (pts, color) => fillPoly(ctx, pts, color);
   const trim = (x, y, w, h, edge, fill) => { box(x, y, w, h, edge); box(x + 1, y + 1, w - 2, h - 2, fill); };
@@ -63,6 +81,12 @@ export function isoPainter(ctx, proj) {
     }
     poly([A, B, C, D], c.top);
     if (c.edge && h > 0) { poly([D, C, [C[0], C[1] + 1], [D[0], D[1] + 1]], c.edge); poly([C, B, [B[0], B[1] + 1], [C[0], C[1] + 1]], c.edge); }
+    const big = Math.abs(B[0] - D[0]) >= 9 && (h >= 4 || Math.abs(C[1] - A[1]) >= 6);
+    if (ink && c.ink !== false && big && !translucent(c.top) && !translucent(c.left)) {
+      const outline = h > 0 ? [A, B, Bb, Cb, Db, D] : [A, B, C, D];
+      outline.forEach((pt, i) => inkLine(ctx, pt, outline[(i + 1) % outline.length], INK));
+      if (h > 0) { inkLine(ctx, D, C, INK_SOFT); inkLine(ctx, C, B, INK_SOFT); inkLine(ctx, C, Cb, INK_SOFT); }
+    }
   }
   // Rectangles painted on a face. u runs along the face (tiles), v is the height above the floor (px).
   function onLeft(x, y, d, u, v, uw, vh, color) {
@@ -77,7 +101,7 @@ export function isoPainter(ctx, proj) {
     poly([at(x + u0, y + v0, z), at(x + u0 + uw, y + v0, z), at(x + u0 + uw, y + v0 + vd, z), at(x + u0, y + v0 + vd, z)], color);
   }
   function flat(x, y, w, d, color, z = 0) { poly([at(x, y, z), at(x + w, y, z), at(x + w, y + d, z), at(x, y + d, z)], color); }
-  return { ctx, proj, box, poly, trim, oval, at, prism, onLeft, onRight, onTop, flat };
+  return { ctx, proj, box, poly, trim, oval, at, prism, onLeft, onRight, onTop, flat, line: (a, b, color = INK) => inkLine(ctx, a, b, color) };
 }
 
 const rgbCache = new Map();

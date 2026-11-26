@@ -145,8 +145,9 @@ export function windowView(p, x, y, w, h, start, view = {}) {
       if (peak > 15) box(x + i, y + h - 6 - peak, 1, 2, '#e8efe8');
     }
     for (let i = -4; i < w; i += 6) {
-      const th = 9 + Math.floor(rnd() * 9), tx = x + i;
-      for (let r = 0; r < th; r++) box(tx + 3 - Math.floor(r / 3), y + h - th + r, 1 + 2 * Math.floor(r / 3), 1, r % 4 === 0 ? '#3f6c51' : '#4d7f58');
+      const th = 9 + Math.floor(rnd() * 9), tx = x + i, trees = v.trees || ['#3f6c51', '#4d7f58'];
+      for (let r = 0; r < th; r++) box(tx + 3 - Math.floor(r / 3), y + h - th + r, 1 + 2 * Math.floor(r / 3), 1, r % 4 === 0 ? trees[0] : trees[1]);
+      if (v.snow) box(tx + 2, y + h - th, 3, 1, '#f4f7fa');
     }
   } else {
     let bx = x - 3;
@@ -158,6 +159,7 @@ export function windowView(p, x, y, w, h, start, view = {}) {
       box(bx, by, bw, bh, body);
       box(bx + 2, by - 2, bw - 3, 2, body);
       box(bx + bw - 3, by, 3, bh, v.side);
+      if (v.snow) box(bx + 1, by - 2, bw - 1, 1, '#f4f7fa');
       for (let wy = by + 3; wy < y + h - 1; wy += 5)
         for (let wx = bx + 2; wx < bx + bw - 3; wx += 4)
           if (rnd() > 0.23) box(wx, wy, 2, 2, rnd() > 0.5 ? v.lit : v.dark);
