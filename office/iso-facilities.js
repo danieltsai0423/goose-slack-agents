@@ -104,21 +104,37 @@ export const facilities = {
     balls.forEach(([c, u, v], i) => disc(p, x + 0.1 + u + (shot > 0.4 ? (i - 2) * 0.05 * (shot - 0.4) : 0), y + 0.25 + v + (shot > 0.4 ? Math.sin(i * 2) * 0.12 * (shot - 0.4) : 0), 12.5, 0.05, c));
     disc(p, x + 0.1 + (active ? 0.4 + Math.min(0.4, shot) * 1.5 : 0.45), y + 0.25 + 0.7, 12.5, 0.05, '#f8f8f2');
   },
+  // A small stage: warm wooden boards with footlights along the front, red curtains at the sides, a modest
+  // lyrics screen at the back, two floor speakers and a mic stand. Lights sweep only while someone sings.
   karaoke(p, x, y, tick, active) {
-    p.prism(x + 0.05, y + 0.05, 0, 1.9, 1.9, 4, tone('#3a2440'));
-    p.onTop(x + 0.05, y + 0.05, 4, 0.1, 0.1, 1.7, 1.7, '#4a2e52');
-    for (const [u, v] of [[0.1, 0.1], [1.65, 1.65]]) {
-      p.prism(x + u, y + v, 4, 0.3, 0.3, 16, tone('#1a1a1e'));
-      const [sx, sy] = p.at(x + u + 0.15, y + v + 0.3, 12);
-      p.oval(sx, sy, 2, 2, active && tick % 2 ? '#5a5a62' : '#2a2a2e');
+    const soft = c => ({ ...tone(c), ink: false });
+    p.prism(x + 0.05, y + 0.05, 0, 1.9, 1.9, 4, tone('#8a5a3a'));                       // stage
+    for (let i = 0; i < 6; i++) p.onTop(x + 0.05, y + 0.05, 4, 0.05, 0.08 + i * 0.3, 1.8, 0.02, '#a8744a');
+    p.onTop(x + 0.05, y + 0.05, 4, 0.1, 0.1, 1.7, 1.7, '#b0794c55');
+    for (let i = 0; i < 7; i++) {                                                         // footlights
+      const lit = active ? (tick + i) % 3 !== 0 : i % 2 === 0;
+      p.onLeft(x + 0.05, y + 0.05, 1.9, 0.12 + i * 0.25, 1, 0.08, 2, lit ? '#ffe27a' : '#7a5a3a');
     }
-    p.prism(x + 0.05, y + 0.05, 4, 1.9, 0.08, 30, tone('#1a1420'));
-    p.onLeft(x + 0.05, y + 0.05, 0.08, 0.5, 14, 0.9, 12, active ? ['#e0508a', '#7a4ac0', '#40c0f0', '#f2c94c'][tick % 4] : '#2a2040');
-    if (active) for (let i = 0; i < 4; i++) p.onLeft(x + 0.05, y + 0.05, 0.08, 0.55 + i * 0.2, 22 - (tick + i) % 4 * 2, 0.08, 1, '#ffffff');
-    const [mx, my] = p.at(x + 0.8, y + 1, 4);
-    p.box(mx, my - 18, 1, 18, '#8a8a92'); p.oval(mx, my - 19, 2, 1, '#2a2a2e');
+    // Back wall with a lyrics screen.
+    p.prism(x + 0.05, y + 0.05, 4, 1.9, 0.08, 22, tone('#3a2a44'));
+    p.onLeft(x + 0.05, y + 0.05, 0.08, 0.45, 9, 1.0, 13, '#1a1420');
+    p.onLeft(x + 0.05, y + 0.05, 0.08, 0.5, 10, 0.9, 11, active ? ['#7a4ac0', '#5a3aa0', '#8a5ad0', '#6a4ab0'][tick % 4] : '#2a2040');
+    if (active) for (let i = 0; i < 3; i++) p.onLeft(x + 0.05, y + 0.05, 0.08, 0.58 + i * 0.12, 17 - i * 3, 0.5 - i * 0.1, 1, i === (tick % 3) ? '#ffe27a' : '#ffffff');
+    // Curtains on both sides, folded.
+    for (const u of [0.05, 1.71]) {
+      p.prism(x + u, y + 0.13, 4, 0.24, 0.12, 21, tone('#b03a4a'));
+      for (let f = 0; f < 3; f++) p.onLeft(x + u, y + 0.13, 0.12, 0.03 + f * 0.08, 5, 0.02, 19, '#8a2a3a');
+      p.prism(x + u - 0.02, y + 0.11, 23, 0.28, 0.16, 3, soft('#d8a84a'));            // valance
+    }
+    for (const [u, v] of [[0.12, 1.55], [1.6, 1.55]]) {                                  // floor speakers
+      p.prism(x + u, y + v, 4, 0.28, 0.28, 8, tone('#2a2a2e'));
+      const [sx, sy] = p.at(x + u + 0.14, y + v + 0.28, 8);
+      p.oval(sx, sy, 2, 2, active && tick % 2 ? '#6a6a72' : '#45454c');
+    }
+    const [mx, my] = p.at(x + 0.95, y + 1.0, 4);
+    p.oval(mx, my, 3, 1, '#2a2a2e'); p.box(mx, my - 17, 1, 17, '#8a8a92'); p.oval(mx, my - 18, 2, 1, '#2a2a2e');
     if (active) for (const [i, c] of [[0, '#e0508a'], [1, '#40c0f0'], [2, '#f2c94c']]) {
-      const [lx, ly] = p.at(x + 0.4 + i * 0.6, y + 0.4, 30);
+      const [lx, ly] = p.at(x + 0.4 + i * 0.6, y + 0.3, 30);
       if ((tick + i) % 3) p.poly([[lx - 1, ly], [lx + 1, ly], [lx + 7 - i * 6, ly + 26], [lx - 5 - i * 4, ly + 26]], c + '22');
     }
   },

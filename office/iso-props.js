@@ -90,19 +90,34 @@ export const props = {
     const [sx, sy] = p.at(o.x + 0.5, o.y + 0.5, 15);
     p.box(sx - 3, sy - 5, 4, 5, '#e5d5b9'); p.box(sx + 2, sy - 3, 3, 3, '#8da397');
   },
+  // A soft sofa: short legs, an inked frame (back and arms), and plump back and seat cushions without ink,
+  // shaped by light. u runs along the sofa, v from the back (0) to the front (1).
   sofa(p, o, t) {
-    const [main, mid, dark] = t.fabric.sofa, len = o.len || 2;
-    if (o.dir === 'y') {
-      p.prism(o.x + 0.05, o.y, 0, 0.3, len, 20, tone(dark));
-      p.prism(o.x + 0.3, o.y, 0, 0.62, len, 9, tone(mid));
-      for (let i = 0; i < len; i++) p.prism(o.x + 0.32, o.y + i + 0.08, 9, 0.56, 0.84, 3, tone(main));
-      p.prism(o.x + 0.3, o.y, 0, 0.62, 0.12, 13, tone(dark)); p.prism(o.x + 0.3, o.y + len - 0.12, 0, 0.62, 0.12, 13, tone(dark));
-    } else {
-      p.prism(o.x, o.y + 0.05, 0, len, 0.3, 20, tone(dark));
-      p.prism(o.x, o.y + 0.3, 0, len, 0.62, 9, tone(mid));
-      for (let i = 0; i < len; i++) p.prism(o.x + i + 0.08, o.y + 0.32, 9, 0.84, 0.56, 3, tone(main));
-      p.prism(o.x, o.y + 0.3, 0, 0.12, 0.62, 13, tone(dark)); p.prism(o.x + len - 0.12, o.y + 0.3, 0, 0.12, 0.62, 13, tone(dark));
+    const [main, mid, dark] = t.fabric.sofa, len = o.len || 2, alongY = o.dir === 'y';
+    const box = (u, v, z, du, dv, h, c) => alongY ? p.prism(o.x + v, o.y + u, z, dv, du, h, c) : p.prism(o.x + u, o.y + v, z, du, dv, h, c);
+    const top = (u, v, z, du, dv, color) => alongY ? p.onTop(o.x + v, o.y + u, z, 0, 0, dv, du, color) : p.onTop(o.x + u, o.y + v, z, 0, 0, du, dv, color);
+    const soft = color => ({ ...tone(color), ink: false });
+    const legs = '#3a2a22';
+    for (const u of [0.06, len - 0.12]) for (const v of [0.14, 0.86]) box(u, v, 0, 0.06, 0.06, 2, { ...tone(legs), ink: false });
+    box(0, 0.1, 2, len, 0.82, 5, tone(mid));                         // base frame
+    box(0.04, 0.08, 7, len - 0.08, 0.2, 13, tone(dark));              // back
+    // Arms with a soft rounded top; the far arm goes behind the cushions, the near one in front.
+    const arm = u => { box(u, 0.1, 2, 0.13, 0.82, 12, tone(dark)); top(u + 0.02, 0.14, 14, 0.09, 0.74, shade(dark, 1.25)); };
+    arm(0);
+    for (let i = 0; i < len; i++) {
+      const u = i + 0.13, w = 0.74;
+      box(u, 0.26, 7, w, 0.18, 10, soft(main));                       // back cushion
+      top(u + 0.06, 0.27, 17, w - 0.12, 0.08, shade(main, 1.14));
+      box(u, 0.42, 7, w, 0.46, 4, soft(main));                        // seat cushion
+      top(u + 0.04, 0.45, 11, w - 0.08, 0.12, shade(main, 1.12));      // light along the back of the seat
+      top(u + 0.04, 0.8, 11, w - 0.08, 0.06, shade(main, 0.9));        // rounded front edge
     }
+    if (len > 1) {                                                    // a soft throw pillow leaning on the back
+      const pillow = t.fabric.pillow || '#e8c26a';
+      box(0.2, 0.42, 11, 0.26, 0.08, 4, soft(shade(pillow, 0.92)));
+      top(0.22, 0.42, 15, 0.22, 0.08, shade(pillow, 1.12));
+    }
+    arm(len - 0.13);
   },
   armchair(p, o, t) { props.sofa(p, { ...o, len: 1, dir: 'x' }, t); },
   table(p, o, t) {
@@ -176,43 +191,58 @@ export const props = {
 };
 
 /* ---------- Desks and chairs ---------- */
+// A desk: thin top on panel legs, a modesty panel facing the room, keyboard and mouse on the near side, a monitor on
+// a stand on the far side (its back to the room), a mug, and a nameplate for the leads. u runs along the desk.
 export function drawDesk(p, [x, y, dir], t, { team, lead, busy, tick }) {
-  const c = tone(t.desk.top, t.desk.edge), accent = team === 'claude' ? '#c67858' : '#5e91aa';
-  const along = dir !== 'y';
-  const X = along ? x + 0.04 : x + 0.18, Y = along ? y + 0.18 : y + 0.04, W = along ? 1.92 : 0.7, D = along ? 0.7 : 1.92;
-  p.prism(X, Y, 0, W, D, 12, c);
-  if (along) p.onLeft(X, Y, D, 0.15, 3, 1.62, 2, accent); else p.onRight(X, Y, W, 0.15, 3, 1.62, 2, accent);
-  // Keyboard in front of the seat, monitor on the far half (its back faces the room).
-  if (along) {
-    p.onTop(X, Y, 12, 0.35, 0.1, 0.5, 0.2, '#d0c4a5');
-    p.prism(x + 1.4, y + 0.42, 12, 0.12, 0.12, 3, tone('#6f7c80'));
-    p.prism(x + 1.18, y + 0.36, 15, 0.56, 0.08, 10, { top: '#5d6a6e', left: '#8b989c', right: '#6f7c80' });
-    p.onLeft(x + 1.18, y + 0.36, 0.08, 0.06, 15.5, 0.44, 1, busy ? (tick % 4 < 2 ? '#9ff0c0' : '#83c5a0') : '#a9b4b6');
-    p.onLeft(x + 1.18, y + 0.36, 0.08, 0.25, 20, 0.06, 2, '#c9d2d4');
-    const [mx, my] = p.at(x + 0.25, y + 0.55, 12);
-    p.box(mx - 2, my - 4, 3, 4, '#f2eadb'); p.box(mx + 1, my - 3, 1, 2, '#f2eadb');
-    if (lead) { const [lx, ly] = p.at(x + 1.85, y + 0.75, 12); p.box(lx - 6, ly - 4, 9, 4, accent); p.box(lx - 5, ly - 3, 7, 1, '#fff4d2'); }
-  } else {
-    p.onTop(X, Y, 12, 0.1, 0.35, 0.2, 0.5, '#d0c4a5');
-    p.prism(x + 0.42, y + 1.4, 12, 0.12, 0.12, 3, tone('#6f7c80'));
-    p.prism(x + 0.36, y + 1.18, 15, 0.08, 0.56, 10, { top: '#5d6a6e', left: '#6f7c80', right: '#8b989c' });
-    p.onRight(x + 0.36, y + 1.18, 0.08, 0.06, 15.5, 0.44, 1, busy ? (tick % 4 < 2 ? '#9ff0c0' : '#83c5a0') : '#a9b4b6');
-    p.onRight(x + 0.36, y + 1.18, 0.08, 0.25, 20, 0.06, 2, '#c9d2d4');
-    const [mx, my] = p.at(x + 0.55, y + 0.25, 12);
-    p.box(mx - 2, my - 4, 3, 4, '#f2eadb');
-    if (lead) { const [lx, ly] = p.at(x + 0.75, y + 1.85, 12); p.box(lx - 2, ly - 4, 9, 4, accent); p.box(lx - 1, ly - 3, 7, 1, '#fff4d2'); }
-  }
+  const accent = team === 'claude' ? '#c67858' : '#5e91aa', along = dir !== 'y';
+  const box = (u, v, z, du, dv, h, c) => along ? p.prism(x + u, y + v, z, du, dv, h, c) : p.prism(x + v, y + u, z, dv, du, h, c);
+  const top = (u, v, z, du, dv, color) => along ? p.onTop(x + u, y + v, z, 0, 0, du, dv, color) : p.onTop(x + v, y + u, z, 0, 0, dv, du, color);
+  const pt = (u, v, z) => along ? p.at(x + u, y + v, z) : p.at(x + v, y + u, z);
+  const legs = { ...tone(t.desk.legs || shade(t.desk.left, 0.8)) };
+  const flat = c => ({ ...tone(c), ink: false });
+  box(0.06, 0.2, 0, 0.1, 0.66, 11, legs);                     // panel legs at both ends
+  box(1.84, 0.2, 0, 0.1, 0.66, 11, legs);
+  box(0.16, 0.8, 3, 1.68, 0.05, 8, tone(t.desk.left));         // modesty panel, towards the room
+  if (along) p.onLeft(x + 0.16, y + 0.8, 0.05, 0.1, 6, 1.48, 1, accent); else p.onRight(x + 0.8, y + 0.16, 0.05, 0.1, 6, 1.48, 1, accent);
+  box(0.02, 0.16, 11, 1.96, 0.74, 2, tone(t.desk.top, t.desk.edge)); // desktop
+  // Keyboard (with key rows) and mouse in front of the chair.
+  top(0.42, 0.24, 13, 0.56, 0.18, '#3e4448');
+  for (let r = 0; r < 3; r++) top(0.45, 0.26 + r * 0.05, 13, 0.5, 0.02, '#c9d0d2');
+  top(1.05, 0.28, 13, 0.07, 0.1, '#d8dcde');
+  // Monitor on a stand, screen facing the chair; busy desks spill light onto the top.
+  top(1.0, 0.56, 13, 0.3, 0.14, '#5d6468');
+  box(1.12, 0.6, 13, 0.06, 0.05, 6, flat('#6f7c80'));
+  box(0.86, 0.6, 18, 0.58, 0.07, 11, { top: '#4a5256', left: '#6f7c80', right: '#5d6a6e' });
+  if (busy) top(0.86, 0.42, 13, 0.58, 0.16, tick % 4 < 2 ? '#9ff0c055' : '#83c5a055');
+  const [lx, ly] = pt(1.15, 0.67, 24);
+  p.box(lx - 1, ly - 1, 2, 2, busy ? '#9ff0c0' : '#a9b4b6');      // power light on the back
+  // Mug, and a nameplate for the leads.
+  const [mx, my] = pt(0.22, 0.38, 13);
+  p.box(mx - 2, my - 4, 4, 4, '#3b302c'); p.box(mx - 1, my - 3, 2, 3, '#f2eadb'); p.box(mx + 2, my - 3, 1, 2, '#f2eadb'); p.box(mx - 1, my - 3, 2, 1, '#8a5a3a');
+  if (lead) { const [nx, ny] = pt(1.7, 0.7, 13); p.box(nx - 5, ny - 4, 9, 4, '#3b302c'); p.box(nx - 4, ny - 3, 7, 2, accent); p.box(nx - 3, ny - 3, 5, 1, '#fff4d2'); }
 }
 
+// An office chair: five-star base on castors, gas lift, padded seat, a tall curved back and armrests.
 export function drawChair(p, seat, t, team) {
-  const [px, py] = seat.point, fabric = team === 'claude' ? '#90776a' : '#577b84';
-  if (seat.facing === 'sw') {
-    p.prism(px - 0.22, py - 0.28, 0, 0.44, 0.1, 21, tone(fabric));
-    p.prism(px - 0.22, py - 0.2, 6, 0.44, 0.38, 3, tone(fabric));
-  } else {
-    p.prism(px - 0.28, py - 0.22, 0, 0.1, 0.44, 21, tone(fabric));
-    p.prism(px - 0.2, py - 0.22, 6, 0.38, 0.44, 3, tone(fabric));
+  const [px, py] = seat.point, fabric = team === 'claude' ? '#b07a5e' : '#4e6f7c';
+  const se = seat.facing !== 'sw';
+  // u across the chair, w from the back (-) to the front (+).
+  const box = (u, w, z, du, dw, h, c) => se ? p.prism(px + w, py + u, z, dw, du, h, c) : p.prism(px + u, py + w, z, du, dw, h, c);
+  const pt = (u, w, z) => se ? p.at(px + w, py + u, z) : p.at(px + u, py + w, z);
+  const metal = '#4a4e54';
+  const [cx, cy] = pt(0, -0.02, 1);
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2 + 0.3, [ex, ey] = pt(Math.cos(a) * 0.24, -0.02 + Math.sin(a) * 0.24, 1);
+    p.line([cx, cy], [ex, ey], metal); p.box(ex - 1, ey, 2, 1, '#2a2a2e');
   }
+  box(-0.03, -0.05, 1, 0.06, 0.06, 5, { ...tone(metal), ink: false });          // gas lift
+  box(-0.2, -0.18, 6, 0.4, 0.36, 3, tone(fabric));                              // seat
+  p.onTop(...(se ? [px - 0.14, py - 0.16] : [px - 0.16, py - 0.14]), 9, 0, 0, se ? 0.3 : 0.32, se ? 0.32 : 0.3, shade(fabric, 1.12));
+  // A mid-height back on a dark frame, so it never reads as a second monitor behind the desk.
+  box(-0.03, -0.3, 8, 0.06, 0.05, 3, { ...tone(metal), ink: false });
+  box(-0.19, -0.31, 11, 0.38, 0.08, 8, tone(fabric));                           // back
+  box(-0.15, -0.32, 19, 0.3, 0.08, 2, tone(shade(fabric, 1.12)));               // rounded top
+  for (const u of [-0.23, 0.19]) box(u, -0.14, 10, 0.04, 0.26, 2, { ...tone(metal), ink: false }); // armrests
 }
 
 /* ---------- Bought furniture (one tile each) ---------- */
@@ -223,7 +253,16 @@ export const furnitureIso = {
     p.box(sx - 1, sy - 9, 2, 9, '#6a4a32'); p.box(sx + 1, sy - 11, 3, 2, '#6a4a32');
     p.oval(sx - 5, sy - 9, 4, 2, '#3f6c51'); p.oval(sx + 4, sy - 13, 5, 3, '#4d7f58'); p.oval(sx, sy - 15, 3, 2, '#5f9160');
   },
-  beanbag(p, x, y) { const [sx, sy] = p.at(x + 0.5, y + 0.5, 0); p.oval(sx, sy - 4, 10, 5, '#a04a3a'); p.oval(sx - 1, sy - 6, 8, 4, '#c45c47'); p.oval(sx - 3, sy - 8, 4, 2, '#d97a62'); },
+  // A slouchy beanbag: a raised back, a dent where you sit, inked outline and a soft highlight.
+  beanbag(p, x, y) {
+    const [sx, sy] = p.at(x + 0.5, y + 0.55, 0), ink = '#3b302c';
+    p.oval(sx, sy, 12, 3, '#00000022');
+    p.oval(sx + 1, sy - 5, 12, 7, ink); p.oval(sx + 1, sy - 5, 11, 6, '#a84a38');             // body
+    p.oval(sx - 3, sy - 11, 8, 6, ink); p.oval(sx - 3, sy - 11, 7, 5, '#c45c47');             // raised back
+    p.oval(sx + 3, sy - 6, 6, 3, '#8f3c2e');                                                 // the dent
+    p.oval(sx - 5, sy - 13, 3, 2, '#e08a6e'); p.box(sx - 7, sy - 14, 3, 1, '#f0a88a');       // highlight
+    p.box(sx + 7, sy - 4, 3, 1, '#c45c47');                                                  // seam
+  },
   'espresso-bar'(p, x, y, tick) {
     p.prism(x + 0.08, y + 0.1, 0, 0.84, 0.8, 14, tone('#8c6a4e'));
     p.prism(x + 0.2, y + 0.2, 14, 0.5, 0.35, 11, tone('#c98a4a', '#e8b070'));
@@ -258,11 +297,23 @@ export const furnitureIso = {
     p.onLeft(x + 0.15, y + 0.15, 0.7, 0.05, 26, 0.6, 3, '#e0508a');
     p.onLeft(x + 0.15, y + 0.15, 0.7, 0.2, 10, 0.1, 2, '#e04040');
   },
+  // A reclined massage chair in burgundy leather: base, seat, a back that tilts away, headrest, thick
+  // armrests with a control panel, and a footrest.
   'massage-chair'(p, x, y) {
-    p.prism(x + 0.15, y + 0.2, 0, 0.7, 0.6, 9, tone('#4a4a52'));
-    p.prism(x + 0.15, y + 0.15, 0, 0.7, 0.2, 24, tone('#2a2a2e'));
-    p.prism(x + 0.1, y + 0.2, 0, 0.12, 0.6, 14, tone('#3a3a40')); p.prism(x + 0.78, y + 0.2, 0, 0.12, 0.6, 14, tone('#3a3a40'));
-    p.onLeft(x + 0.15, y + 0.15, 0.2, 0.2, 16, 0.3, 1, '#c9a45c');
+    const leather = '#8a3440', frame = '#2f2a2e', soft = c => ({ ...tone(c), ink: false });
+    p.prism(x + 0.16, y + 0.2, 0, 0.68, 0.64, 4, tone(frame));                    // base
+    p.prism(x + 0.3, y + 0.8, 0, 0.4, 0.14, 3, tone(frame));                       // footrest
+    p.prism(x + 0.3, y + 0.78, 3, 0.4, 0.16, 3, soft(shade(leather, 1.08)));
+    p.prism(x + 0.24, y + 0.34, 4, 0.52, 0.46, 4, tone(leather));                  // seat
+    p.onTop(x + 0.24, y + 0.34, 8, 0.04, 0.04, 0.44, 0.12, shade(leather, 1.18));
+    // Back leaning away: each step a little further back and higher, like a recliner.
+    for (let k = 0; k < 4; k++) p.prism(x + 0.24, y + 0.28 - k * 0.06, 8 + k * 3, 0.52, 0.16, 3, soft(shade(leather, 1 + k * 0.04)));
+    p.prism(x + 0.3, y + 0.06, 20, 0.4, 0.16, 3, soft('#a84a56'));                 // headrest
+    for (const u of [0.12, 0.76]) {                                                // armrests below seat height + 4
+      p.prism(x + u, y + 0.3, 0, 0.12, 0.5, 10, tone(frame));
+      p.onTop(x + u, y + 0.3, 10, 0.02, 0.06, 0.08, 0.38, '#45404a');
+    }
+    p.onTop(x + 0.76, y + 0.3, 10, 0.03, 0.36, 0.03, 0.04, '#7af07a'); p.onTop(x + 0.76, y + 0.3, 10, 0.07, 0.36, 0.03, 0.04, '#f2c94c');
   },
   piano(p, x, y) {
     p.prism(x + 0.05, y + 0.1, 0, 0.9, 0.4, 24, tone('#2e2422'));
@@ -330,11 +381,19 @@ export const furnitureIso = {
     p.poly([[sx - 9, sy - 15], [sx + 8, sy - 25], [sx + 10, sy - 21], [sx - 7, sy - 12]], '#2f4f7a');
     p.poly([[sx + 7, sy - 26], [sx + 12, sy - 28], [sx + 13, sy - 22], [sx + 9, sy - 21]], '#c9a45c');
   },
+  // A sleep pod: a white tub with a mattress and pillow, a rounded canopy over the head end with a tinted window,
+  // and a status light. Sleepers lie in the tub.
   'sleep-pod'(p, x, y, tick) {
-    const [sx, sy] = p.at(x + 0.5, y + 0.5, 0);
-    p.oval(sx, sy - 9, 14, 9, '#d8dde2'); p.oval(sx, sy - 10, 13, 8, '#f2f5f7');
-    p.oval(sx + 2, sy - 11, 8, 5, '#2a3a4a'); p.oval(sx + 2, sy - 11, 7, 4, '#3f5a7a');
-    if (tick % 20 < 10) p.box(sx - 12, sy - 11, 2, 3, '#9ff0ff');
+    const white = '#eef1f4', soft = c => ({ ...tone(c), ink: false });
+    p.prism(x + 0.06, y + 0.2, 0, 0.88, 0.62, 7, tone(white));                    // tub
+    p.onTop(x + 0.06, y + 0.2, 7, 0.06, 0.06, 0.76, 0.5, '#bcd2e4');               // mattress
+    p.prism(x + 0.36, y + 0.26, 7, 0.12, 0.5, 2, soft('#ffffff'));                 // pillow
+    p.prism(x + 0.06, y + 0.2, 7, 0.28, 0.62, 6, tone(white));                     // canopy over the head end
+    p.prism(x + 0.08, y + 0.22, 13, 0.24, 0.58, 2, soft('#ffffff'));
+    p.prism(x + 0.12, y + 0.26, 15, 0.16, 0.5, 1, soft('#ffffff'));
+    p.onRight(x + 0.06, y + 0.2, 0.28, 0.08, 8, 0.46, 4, '#3f5a7a');               // window
+    p.onRight(x + 0.06, y + 0.2, 0.28, 0.12, 11, 0.12, 1, '#8fb0d0');
+    p.onLeft(x + 0.06, y + 0.2, 0.62, 0.62, 3, 0.1, 2, tick % 20 < 10 ? '#7af0f0' : '#3a8a90'); // status light
   },
   sculpture(p, x, y) {
     p.prism(x + 0.25, y + 0.25, 0, 0.5, 0.5, 9, tone('#efece6'));
