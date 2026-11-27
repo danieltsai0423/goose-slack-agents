@@ -841,8 +841,8 @@ function renderState() {
   $('service-label').textContent=ready?'已連線':transport==='loading'?'連線中':ok&&offline.length===1?titleFor(offline[0])+' 待登入':ok?'引擎未就緒':'離線';
   $('backend-name').textContent=state.backend.label||'本機工作區';
   $('backend-detail').textContent=ok?(state.backend.detail||(ready?'本機服務已連線。':'請檢查代理引擎設定。')):transport==='loading'?'正在取得服務狀態。':'無法連線至本機服務，會自動重試。';
-  $('active-count').textContent=received?state.tasks.filter(t=>active.has(t.status)).length:'—';
-  $('queue-count').textContent=received?state.tasks.filter(t=>t.status==='queued').length:'—';
+  $('active-count').textContent=received?state.tasks.filter(t=>active.has(t.status)).length:'…';
+  $('queue-count').textContent=received?state.tasks.filter(t=>t.status==='queued').length:'…';
   const count=new Set(state.tasks.map(t=>t.threadId)).size+state.slackThreads.length;
   $('nav-count').textContent=count>0?count:'';
   renderLoginStatus();

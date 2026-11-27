@@ -105,7 +105,7 @@ function furnitureIcon(entry, scale = 2) {
 }
 // Sprite-stacked furniture slowly turning on the shop card, like a product turntable.
 const turning = new Set();
-let turnTimer = null, turnStep = 0;
+let turnTimer = null;
 function turntable(id) {
   // Crop to the highest point the model reaches at any angle, then zoom by a whole number so pixels stay square.
   let first = null, top = Infinity;
@@ -128,17 +128,19 @@ function turntable(id) {
   paintTurn(canvas);
   turning.add(canvas);
   turnTimer ??= setInterval(() => {
-    turnStep++;
+
     for (const node of turning) {
       if (!node.isConnected) { turning.delete(node); continue; }
-      if (node.offsetParent && !matchMedia('(prefers-reduced-motion: reduce)').matches) paintTurn(node);
+      // Turn only while the card is hovered or focused, so nothing keeps moving on its own.
+      const card = node.closest('.shop-card') || node.parentElement;
+      if (node.offsetParent && card?.matches(':hover, :focus-within') && !matchMedia('(prefers-reduced-motion: reduce)').matches) { node.dataset.turn = String(Number(node.dataset.turn || 0) + 1); paintTurn(node); }
     }
     if (!turning.size) { clearInterval(turnTimer); turnTimer = null; }
   }, 140);
   return canvas;
 }
 function paintTurn(canvas) {
-  const dir = (turnStep + Number(canvas.dataset.offset)) % DIRECTIONS;
+  const dir = (Number(canvas.dataset.turn || 0) + Number(canvas.dataset.offset)) % DIRECTIONS;
   const sprite = furnitureSprite(canvas.dataset.model, dir / DIRECTIONS * Math.PI * 2);
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -283,7 +285,7 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     onReact(targets, itemId, lead, line);
   }
 
-  /* ---------- Building blocks ---------- */
+  /* Building blocks */
   function button(label, handler, { tone = '', disabled = false } = {}) {
     const node = el('button', 'game-btn' + (tone ? ' ' + tone : ''), label);
     node.type = 'button'; node.disabled = disabled || busy;
@@ -351,7 +353,7 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     return group;
   }
 
-  /* ---------- 道具 ---------- */
+  /* 道具 */
   // Picks who receives an item: a party roster with each member's portrait and mood at a glance.
   function pickTarget(staff = getStaff()) {
     if (!staff.some(person => person.id === target)) target = getSelected() || staff[0]?.id || '';
@@ -378,7 +380,7 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
       const fav = el('span', 'staff-fav');
       const favItem = itemById[favorites[person.id]];
       if (favItem) fav.append(itemIcon(favItem.id, 1), el('span', '', favItem.name));
-      else fav.textContent = '—';
+      else fav.textContent = '沒有最愛';
       info.append(head, moodMeters(person.id, true), fav);
       tile.append(frame, info);
       if (!status) tile.disabled = true;
@@ -423,7 +425,7 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     ];
   }
 
-  /* ---------- 家具 ---------- */
+  /* 家具 */
   const firstLargeFloor = () => floors.find(floor => floor.capacity.large > 0)?.id;
   function layoutSummary() {
     const board = el('div', 'slot-board');
@@ -515,7 +517,7 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     ];
   }
 
-  /* ---------- 福利 ---------- */
+  /* 福利 */
   function renderPerks() {
     const unlocked = Math.max(...economy.floorsOwned);
     const grid = el('div', 'shop-grid');
@@ -537,7 +539,7 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     return [sectionHead('公司福利', `已實施 ${active} / ${perks.length} · 買一次永久有效，不佔擺放位置`), grid];
   }
 
-  /* ---------- 樓層 ---------- */
+  /* 樓層 */
   function floorPreview(floor) {
     const key = floor.id + JSON.stringify(economy.placed);
     if (!previews.has(key)) {
@@ -591,7 +593,7 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     return [sectionHead('大樓樓層', `已解鎖 ${economy.floorsOwned.length} / ${floors.length} 層 · 越高收入倍率越高`), list];
   }
 
-  /* ---------- 收支 ---------- */
+  /* 收支 */
   function renderLedger() {
     const totals = el('div', 'ledger-totals');
     const total = (label, value, tone) => {
@@ -620,7 +622,7 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     return [totals, rules, toolbar, list];
   }
 
-  /* ---------- Summary HUD ---------- */
+  /* Summary HUD */
   function renderSummary() {
     const floor = floorById[economy.floor];
     const key = economy.floor + JSON.stringify(economy.placed);
@@ -633,7 +635,7 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
       ['ledger', '辦公資金', money(economy.funds), `累計收入 ${money(economy.earned)}`, 'funds'],
       ['rate', '每 1% 額度', money(FUNDS_PER_PERCENT * economy.income), `總倍率 ×${economy.income.toFixed(2)}`, ''],
       ['morale', '團隊士氣', '×' + economy.morale.toFixed(2), unhappy ? `${unhappy} 人狀態不佳` : '大家狀態不錯', unhappy ? 'warn' : ''],
-      ['clock', '每小時回復', r.mood || r.energy ? [...effectLine({ mood: r.mood, energy: r.energy }).childNodes] : '—',
+      ['clock', '每小時回復', r.mood || r.energy ? [...effectLine({ mood: r.mood, energy: r.energy }).childNodes] : '沒有加成',
         r.decay ? `心情衰退 −${Math.round(r.decay * 100)}%` : '樓層、家具與福利加總', 'hourly']
     ];
     document.getElementById('shop-stats').replaceChildren(...stats.map(([icon, label, value, hint, tone]) => {

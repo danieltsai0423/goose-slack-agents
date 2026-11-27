@@ -21,7 +21,7 @@
         <button class="nav-action" id="settings-nav"><i data-icon="gear"></i>設定</button>
       </nav>
       <div class="topbar-end">
-        <div class="head-stats" role="group" aria-label="辦公室狀態"><span><i class="light"></i>執行中 <b id="active-count">—</b></span><span><i class="light queue"></i>排隊中 <b id="queue-count">—</b></span></div>
+        <div class="head-stats" role="group" aria-label="辦公室狀態"><span><i class="light"></i>執行中 <b id="active-count">…</b></span><span><i class="light queue"></i>排隊中 <b id="queue-count">…</b></span></div>
         <button class="lang-toggle" type="button" id="lang-toggle" aria-label="介面語言"><span data-lang="zh">中</span><span data-lang="en">EN</span></button>
         <button class="icon-button theme-toggle" type="button" id="theme-toggle" aria-label="亮色模式" aria-pressed="false" title="切換至亮色模式"><i data-icon="sun"></i></button>
         <button class="login-trigger" type="button" id="login-open" aria-haspopup="dialog"><i data-icon="login"></i>登入</button>
@@ -30,10 +30,11 @@
     </div>
   </header>
   <main class="workspace" id="workspace">
+    <h1 class="sr-only">Goose Office</h1>
     <div class="layout">
       <div class="work-column" id="floor-view">
         <section class="panel floor-card" aria-labelledby="floor-heading">
-          <div class="floor-head"><div class="panel-title"><span class="section-icon"><i data-icon="floor"></i></span><h2 id="floor-heading">辦公區</h2><span class="floor-label" id="floor-label">1F</span><span class="floor-name" id="floor-name"></span></div><div class="floor-actions"><button type="button" class="wallet" id="wallet" title="辦公資金與收支" aria-label="辦公資金，查看收支"><i class="coin" aria-hidden="true"></i><b id="wallet-funds">—</b><small id="wallet-rate"></small></button><button type="button" class="shop-trigger" id="shop-open"><i data-icon="shop"></i>商店</button><button type="button" class="life-toggle daylight-toggle" id="daylight-toggle"><span class="sky-icon" aria-hidden="true"></span><span id="daylight-label">自動</span></button><button type="button" class="life-toggle" id="office-life-toggle" aria-pressed="true"><span class="light"></span>辦公室日常</button></div></div>
+          <div class="floor-head"><div class="panel-title"><span class="section-icon"><i data-icon="floor"></i></span><h2 id="floor-heading">辦公區</h2><span class="floor-label" id="floor-label">1F</span><span class="floor-name" id="floor-name"></span></div><div class="floor-actions"><button type="button" class="wallet" id="wallet" title="辦公資金與收支" aria-label="辦公資金，查看收支"><i class="coin" aria-hidden="true"></i><b id="wallet-funds">…</b><small id="wallet-rate"></small></button><button type="button" class="shop-trigger" id="shop-open"><i data-icon="shop"></i>商店</button><button type="button" class="life-toggle daylight-toggle" id="daylight-toggle"><span class="sky-icon" aria-hidden="true"></span><span id="daylight-label">自動</span></button><button type="button" class="life-toggle" id="office-life-toggle" aria-pressed="true"><span class="light"></span>辦公室日常</button></div></div>
           <div class="canvas-wrap">
             <canvas id="office-canvas" role="img" aria-label="Claude 與 Codex 的等角視角像素辦公室。拖曳移動、滾輪或雙指縮放，方向鍵與 +、- 也可操作；也可在下方團隊成員區選取座位。"></canvas>
             <div class="funds-toast" id="funds-toast" role="status" hidden></div>

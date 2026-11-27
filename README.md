@@ -66,7 +66,7 @@ Open **http://127.0.0.1:4178/** and click **Sign in → Start setup** at the top
 
 - **Goose CLI:** the project is tested with [Goose 1.60.2](https://github.com/aaif-goose/goose/releases/tag/v1.60.2). On Windows, unzip it into `.tools/goose` or add `goose.exe` to `PATH`, or set the path on the **Settings** page.
 - **Codex for Goose:** run `npm run configure -- codex`, choose **Configure Providers → ChatGPT Codex**, and sign in with your ChatGPT account in the browser. A native Codex CLI sign-in doesn't carry over to this Goose profile.
-- **Claude:** sign in to Claude Code with your own subscription (`claude auth login`). Anthropic decides how third-party tools may use a Claude account — see [Logging in to your Claude account](https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account).
+- **Claude:** sign in to Claude Code with your own subscription (`claude auth login`). Anthropic decides how third-party tools may use a Claude account. See [Logging in to your Claude account](https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account).
 - **Native Codex CLI (optional):** unlocks the `xhigh` and `max` effort levels that Goose doesn't support yet.
 
   ```powershell
@@ -93,11 +93,11 @@ npm run smoke -- claude
 
 More tools on the task desk:
 
-- **Attach** — PNG, JPEG, WebP, PDF, TXT, Markdown, CSV and JSON. Up to 5 files: 7 MB per image, 10 MB per other file, 20 MB in total. You can also paste screenshots.
-- **Cite** — search past tasks and attach up to four snippets as reference material.
-- **Workflow** — up to six steps with owners and dependencies, reviewed by one lead at the end. Independent chat-only steps on different services run in parallel. If a step fails, retry it from the **workflow board**.
-- **Memory & skills** — propose, approve, reject or archive notes for each team member under **Tasks → Memory & skills**. Skills load only when a task matches their triggers.
-- **Results** — agents with tool access can save files under `.data/office-files/` and link them in the chat for download. Images, video and audio preview inline.
+- **Attach:** PNG, JPEG, WebP, PDF, TXT, Markdown, CSV and JSON. Up to 5 files: 7 MB per image, 10 MB per other file, 20 MB in total. You can also paste screenshots.
+- **Cite:** Search past tasks and attach up to four snippets as reference material.
+- **Workflow:** Up to six steps with owners and dependencies, reviewed by one lead at the end. Independent chat-only steps on different services run in parallel. If a step fails, retry it from the **workflow board**.
+- **Memory & skills:** Propose, approve, reject or archive notes for each team member under **Tasks → Memory & skills**. Skills load only when a task matches their triggers.
+- **Results:** Agents with tool access can save files under `.data/office-files/` and link them in the chat for download. Images, video and audio preview inline.
 
 Agents' replies support Markdown, including bold text, lists, tables, links and code. Tasks and conversations are stored in `.data/office.sqlite`.
 
@@ -118,10 +118,10 @@ Between tasks, everyone has a life of their own. At their desks they sip tea, sc
 
 The **Shop** has four sections:
 
-- **Items** — tea, espresso, bubble tea, ramen, sweets, nap pillows and more, given to one person (everyone has a favorite worth ×1.6), or team events like a party or a hot-spring trip.
-- **Furniture** — a bonsai, espresso machine, aquarium, office cat, sleep pod and more, plus **ten games**. Single-player games include a claw machine, basketball machine, dance machine, VR and a racing simulator. The 2×2 games are ping-pong, air hockey, pool, karaoke and board games, and staff invite each other to play these together. Games only animate while someone is playing.
-- **Perks** — flexible hours, gym subsidy, pet-friendly office, year-end bonus. Buy once, keep forever.
-- **Floors** — the building has seven floors. Bigger floors cost more, earn more and fit more:
+- **Items:** Tea, espresso, bubble tea, ramen, sweets, nap pillows and more, given to one person (everyone has a favorite worth ×1.6), or team events like a party or a hot-spring trip.
+- **Furniture:** A bonsai, espresso machine, aquarium, office cat, sleep pod and more, plus **ten games**. Single-player games include a claw machine, basketball machine, dance machine, VR and a racing simulator. The 2×2 games are ping-pong, air hockey, pool, karaoke and board games, and staff invite each other to play these together. Games only animate while someone is playing.
+- **Perks:** Flexible hours, gym subsidy, pet-friendly office, year-end bonus. Buy once, keep forever.
+- **Floors:** The building has seven floors. Bigger floors cost more, earn more and fit more:
 
 | Floor | Size | Small / large / wall spots |
 | --- | --- | --- |
@@ -214,10 +214,10 @@ Tests use simulated agents and isolated databases, so they need no Slack, model 
 
 ## Credits
 
-- **Sprite stacking** — the pseudo-3D furniture follows the technique from [danielwh2/sprite-stacking](https://github.com/danielwh2/sprite-stacking) (MIT). The voxel models themselves are built in code in this repo.
-- **Shop item icons** — 16 sprites in `office/sprites/items/` come from [Pixel Art Atlas · 1.4M Synthetic Sprites](https://huggingface.co/datasets/Angais/pixel-art-atlas-1.4m) by Angais, released under CC0 1.0. They are **AI-generated** (Krea 2), and the [Krea 2 Community License](https://www.krea.ai/krea-2-licensing) applies to the generated outputs. See [`office/sprites/CREDITS.md`](office/sprites/CREDITS.md) for each file's source row.
-- **Illustrated style** — the ink outlines, paper backdrop, puffy seasonal trees and night lighting are our own code, inspired by the look of [Pocket City](https://april-zhu.com/pocketcity) by April Zhu. No Pocket City code or assets are used (it is licensed for non-commercial use only).
-- All other art — the anime staff, floors, walls, furniture drawings and effects — is drawn in code in this repo.
+- **Sprite stacking:** The pseudo-3D furniture follows the technique from [danielwh2/sprite-stacking](https://github.com/danielwh2/sprite-stacking) (MIT). The voxel models themselves are built in code in this repo.
+- **Shop item icons:** 16 sprites in `office/sprites/items/` come from [Pixel Art Atlas · 1.4M Synthetic Sprites](https://huggingface.co/datasets/Angais/pixel-art-atlas-1.4m) by Angais, released under CC0 1.0. They are **AI-generated** (Krea 2), and the [Krea 2 Community License](https://www.krea.ai/krea-2-licensing) applies to the generated outputs. See [`office/sprites/CREDITS.md`](office/sprites/CREDITS.md) for each file's source row.
+- **Illustrated style:** The ink outlines, paper backdrop, puffy seasonal trees and night lighting are our own code, inspired by the look of [Pocket City](https://april-zhu.com/pocketcity) by April Zhu. No Pocket City code or assets are used (it is licensed for non-commercial use only).
+- All other art (the anime staff, floors, walls, furniture drawings and effects) is drawn in code in this repo.
 
 ## License
 

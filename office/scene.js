@@ -315,7 +315,7 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     resize();
   }
 
-  /* ----- camera ----- */
+  /* camera */
   function resize() {
     const rect = canvas.getBoundingClientRect();
     camera.cssW = Math.max(1, rect.width); camera.cssH = Math.max(1, rect.height);
@@ -350,7 +350,7 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
   function resetView() { camera.zoom = camera.fit; camera.x = floor.proj.width / 2; camera.y = floor.proj.height / 2; clamp(); viewChanged(); }
   function viewChanged() { requestDraw(); onView(); }
 
-  /* ----- people ----- */
+  /* people */
   function placeTile(name, index) {
     const L = floor.layout;
     if (name?.startsWith('slot:')) { const spot = L.slots[name.slice(5)]; return spot ? spot.use : null; }
@@ -388,7 +388,7 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
       : life.place === 'board' || life.place === 'boardRight' ? 'write' : propActions[life.prop] || 'look';
     return { x: end[0], y: end[1], facing: place[2] || 'sw', prop: talking ? null : life.prop, action };
   }
-  /* ----- ambient errands ----- */
+  /* ambient errands */
   function pathFor(id, tile) {
     const key = id + '>' + tile.join(',');
     if (!routes.has(key)) {
@@ -618,7 +618,7 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     raf = requestAnimationFrame(() => { raf = 0; blit(); });
   }
 
-  /* ----- input ----- */
+  /* input */
   const pointers = new Map();
   let drag = null, pinch = null;
   const local = e => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };

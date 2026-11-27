@@ -49,7 +49,7 @@ function leaves(p, sx, sy, r, palette, seed = 0, outdoor = false) {
 }
 const greens = ['#568459', '#649353', '#488262', '#5e8f57'];
 
-/* ---------- Built-in props ---------- */
+/* Built-in props */
 export const props = {
   plant(p, o) {
     const cx = o.x + 0.5, cy = o.y + 0.5;
@@ -190,7 +190,7 @@ export const props = {
   }
 };
 
-/* ---------- Desks and chairs ---------- */
+/* Desks and chairs */
 // A desk: thin top on panel legs, a modesty panel facing the room, keyboard and mouse on the near side, a monitor on
 // a stand on the far side (its back to the room), a mug, and a nameplate for the leads. u runs along the desk.
 export function drawDesk(p, [x, y, dir], t, { team, lead, busy, tick }) {
@@ -245,7 +245,7 @@ export function drawChair(p, seat, t, team) {
   for (const u of [-0.23, 0.19]) box(u, -0.14, 10, 0.04, 0.26, 2, { ...tone(metal), ink: false }); // armrests
 }
 
-/* ---------- Bought furniture (one tile each) ---------- */
+/* Bought furniture (one tile each) */
 export const furnitureIso = {
   bonsai(p, x, y) {
     p.prism(x + 0.22, y + 0.3, 0, 0.56, 0.4, 5, tone('#3d4a55'));
@@ -402,7 +402,7 @@ export const furnitureIso = {
   }
 };
 
-/* ---------- Characters ---------- */
+/* Characters */
 export const people = [
   { hair: '#733e32', light: '#bb7950', skin: '#eab891', shirt: '#c67858', fold: '#935140', trousers: '#526b68' },
   { hair: '#354956', light: '#637b80', skin: '#dbb08d', shirt: '#5e91aa', fold: '#416d86', trousers: '#445768' },

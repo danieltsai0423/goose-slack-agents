@@ -104,7 +104,7 @@ export const materials = {
   turf: grass(['#7fae5f', '#88b866', '#76a457'], ['#ffffff', '#f2c94c', '#f0a1b8'])
 };
 
-/* ---------- Wall elevations ---------- */
+/* Wall elevations */
 const views = {
   studio: {},
   loft: { minH: 5, maxH: 20, bodies: ['#8fb0b2', '#7ea2ab'] },

@@ -69,7 +69,7 @@ export const facilities = {
     p.oval(wx, wy, 3, 2, '#3a3a40');
   },
 
-  // ---------- 2×2, played from both ends along x ----------
+  // 2×2, played from both ends along x
   pingpong(p, x, y, tick, active) {
     legs(p, x + 0.15, y + 0.3, 1.7, 1.4, 11, '#3a3a40');
     p.prism(x + 0.15, y + 0.3, 11, 1.7, 1.4, 1, { top: '#2f6ab0', left: '#24548c', right: '#1c446e' });

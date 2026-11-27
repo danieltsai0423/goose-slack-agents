@@ -1,7 +1,7 @@
 // English for the interface, keyed by the original Traditional Chinese text. `{}` in a key matches any text;
 // `{0}`, `{1}`… in the English put those pieces back. Model prompts are not here: they are not shown in the page.
 export const dictionary = {
-  /* ---------- Page and navigation ---------- */
+  /* Page and navigation */
   '數位辦公室 · Goose Office': 'Digital Office · Goose Office',
   'Goose Office 像素數位辦公室，向 Claude 與 Codex 主管交辦任務，追蹤代理團隊的進度與回覆。': 'Goose Office is a pixel-art digital office: hand tasks to Claude and Codex leads and follow your agent team’s progress and replies.',
   '跳至工作區': 'Skip to workspace', 'Goose Office 辦公室首頁': 'Goose Office home', '工作區導覽': 'Workspace navigation',
@@ -12,7 +12,7 @@ export const dictionary = {
   '無法連線至本機服務，會自動重試。': 'Can’t reach the local service. Retrying automatically.',
   '切換為英文介面': 'Switch to English', '切換為中文介面': 'Switch to Chinese', '介面語言': 'Interface language',
 
-  /* ---------- Office floor ---------- */
+  /* Office floor */
   '辦公區': 'Floor', '辦公室日常': 'Office life', '辦公資金與收支': 'Office funds and ledger', '辦公資金，查看收支': 'Office funds, view ledger',
   'Claude 與 Codex 的等角視角像素辦公室。拖曳移動、滾輪或雙指縮放，方向鍵與 +、- 也可操作；也可在下方團隊成員區選取座位。':
     'Isometric pixel office for Claude and Codex. Drag to pan, scroll or pinch to zoom, or use the arrow keys and + / −. You can also pick a seat in the team list below.',
@@ -26,7 +26,7 @@ export const dictionary = {
   '在休息角聊天': 'Chatting in the lounge', '起身走動': 'Stretching their legs', '日常 ·': 'Daily life ·', '常做的事 ·': 'Habits ·',
   '· 心情': '· Mood', '· 精力': '· Energy', '組 /': 'team /',
 
-  /* ---------- People and statuses ---------- */
+  /* People and statuses */
   '主管': 'Lead', '研究員': 'Researcher', '審閱員': 'Reviewer', '工程師': 'Engineer', '測試員': 'Tester', '兩位主管': 'Both leads',
   '規劃主管': 'Planning lead', '工程主管': 'Engineering lead', '雙主管': 'Both leads',
   '待命': 'Idle', '未連線': 'Disconnected', '待登入': 'Sign-in needed', '規劃中': 'Planning', '處理中': 'Working', '已分派': 'Delegated',
@@ -34,7 +34,7 @@ export const dictionary = {
   '興奮': 'Elated', '開心': 'Happy', '平靜': 'Calm', '煩躁': 'Grumpy', '疲憊': 'Tired', '沮喪': 'Down',
   '心情': 'Mood', '精力': 'Energy',
 
-  /* ---------- Task history ---------- */
+  /* Task history */
   '所有交辦': 'All tasks', '新增交辦': 'New task', '網頁交辦': 'Web tasks', 'Slack 紀錄': 'Slack log', '分工看板': 'Workflow board',
   '記憶與技能': 'Memory & skills', '所有狀態': 'All statuses', '搜尋任務內容': 'Search tasks', '篩選任務狀態': 'Filter by status',
   '任務工作區': 'Task workspace', '正在讀取紀錄…': 'Loading history…', '沒有符合條件的任務': 'No matching tasks',
@@ -46,7 +46,7 @@ export const dictionary = {
   '此對話暫無訊息。': 'No messages in this conversation yet.', '正在載入對話…': 'Loading conversation…', '開啟原任務': 'Open original task',
   '這個任務串已無法取得，請新增交辦。': 'This task thread is no longer available. Start a new task.',
 
-  /* ---------- Dispatch panel ---------- */
+  /* Dispatch panel */
   '任務交辦台': 'Task desk', '開啟新的交辦': 'Start a new task', '返回辦公室': 'Back to the office', '選擇收件主管': 'Choose the lead',
   '開啟一個交辦': 'Start a task', '寫下工作目標，主管會決定親自處理': 'Describe the goal. The lead decides whether to handle it',
   '或分派給團隊成員。': 'or delegate it to the team.', '任務與訊息': 'Tasks and messages', '模型與推理強度': 'Model and reasoning effort',
@@ -72,7 +72,7 @@ export const dictionary = {
   '可在專案資料夾內讀寫檔案與執行指令': 'Can read and write files and run commands in the project folder', '完整存取權': 'Full access',
   '可無限制存取網際網路和您電腦上的任何檔案': 'Unrestricted access to the internet and any file on your computer', '權限：': 'Permission: ',
 
-  /* ---------- Citations and workflows ---------- */
+  /* Citations and workflows */
   '引用任務紀錄': 'Cite past tasks', '關閉引用視窗': 'Close citations', '搜尋舊任務的內容': 'Search past tasks', '搜尋可引用的紀錄': 'Search records to cite',
   '正在查詢本機紀錄…': 'Searching local history…', '沒有符合的任務紀錄。': 'No matching tasks.', '已引用': 'Cited', '加入引用': 'Cite',
   '已達 4 則引用上限。': 'You can cite up to 4 records.', '移除引用': 'Remove citation',
@@ -87,7 +87,7 @@ export const dictionary = {
   '技能': 'Skill', '記憶': 'Memory', '查看來源': 'View source', '核准': 'Approve', '退回': 'Reject', '封存': 'Archive', '已更新審核狀態。': 'Review status updated.',
   '目前任務的分工': 'Workflow for this task', '尚無分工。': 'No workflows yet.', '此成員沒有此狀態的提案。': 'This member has no proposals with this status.', '已送審。': 'Submitted for review.',
 
-  /* ---------- Sign-in ---------- */
+  /* Sign-in */
   '登入主管帳號': 'Sign in the leads', '關閉登入視窗': 'Close sign-in',
   '按「開始設定」後，Goose Office 會安裝缺少的工具，依序開啟 Claude 和 ChatGPT 的官方授權頁面。': 'After you click “Start setup”, Goose Office installs any missing tools and opens the official Claude and ChatGPT authorization pages in turn.',
   '正在檢查 Claude Code 的本機登入。': 'Checking the local Claude Code sign-in.', '手動登入 Claude': 'Sign in to Claude manually',
@@ -112,7 +112,7 @@ export const dictionary = {
   '無法完成本機設定。請重試或參考手動登入。': 'Couldn’t finish local setup. Retry or follow the manual sign-in steps.',
   '正在檢查本機安裝與登入設定…': 'Checking local installs and sign-in…', '正在取消設定…': 'Cancelling setup…',
 
-  /* ---------- Usage ---------- */
+  /* Usage */
   '查看全部 ↗': 'View all ↗', '重新讀取用量': 'Reload usage', '查看 Claude 的官方用量': 'View official Claude usage', '查看 Codex 的官方用量': 'View official Codex usage',
   '重置': 'Resets', '已使用': 'used', '請先在本機 Codex CLI 登入 ChatGPT。': 'Sign in to ChatGPT in the local Codex CLI first.',
   '請先在本機 Claude Code 登入。': 'Sign in to Claude Code locally first.', '暫時無法讀取用量。': 'Usage is unavailable right now.', '訂閱用量': 'Subscription usage',
@@ -120,7 +120,7 @@ export const dictionary = {
   '每週額度 ·': 'Weekly limit ·', '每週額度 · Opus': 'Weekly limit · Opus', '每週額度 · Sonnet': 'Weekly limit · Sonnet', '每週額度': 'Weekly limit',
   '{} 天額度': '{0}-day limit', '{} 小時額度': '{0}-hour limit', '{} 分鐘額度': '{0}-minute limit', '額度': 'Limit',
 
-  /* ---------- Shop ---------- */
+  /* Shop */
   '辦公室商店': 'Office shop', '目前的辦公室': 'Current office', '商店分類': 'Shop sections', '道具': 'Items', '家具': 'Furniture', '福利': 'Perks', '樓層': 'Floors', '收支': 'Ledger',
   '地面': 'Floor', '大型': 'Large', '牆面': 'Wall', '雙人': '2 players', '三人': '3 players', '普通': 'Common', '精良': 'Fine', '稀有': 'Rare', '傳說': 'Legendary',
   '地面 {} · 大型 {} · 牆面 {}': 'Floor {0} · Large {1} · Wall {2}', '心情 {}': 'Mood {0}', '精力 {}': 'Energy {0}',
@@ -156,7 +156,7 @@ export const dictionary = {
   '心情衰退 −{}%': 'Mood decay −{0}%', '樓層、家具與福利加總': 'Floor, furniture and perks combined', '正在讀取辦公室資金…': 'Loading office funds…', '去商店買點東西': 'Buy something in the shop',
   '給 {} {}（{}）': 'Give {0} {1} ({2})', '開業資金': 'Opening funds', '{} 用掉 {}% 額度': '{0} used {1}% of quota', '承租 {}F {}': 'Leased {0}F {1}', '購買{}': 'Bought {0}', '實施{}': 'Adopted {0}',
 
-  /* ---------- Floors ---------- */
+  /* Floors */
   '暖木工作室': 'Warm Wood Studio', 'Japandi 暖木': 'Japandi warm wood', '工業風 Loft': 'Industrial Loft', '中世紀摩登': 'Mid-century Modern',
   '霓虹遊戲基地': 'Neon Game Lab', '森林中庭': 'Forest Atrium', '天際頂樓': 'Skyline Penthouse', '空中園區': 'Sky Campus',
   '淺色橡木地板、亞麻沙發與滿室綠植。小團隊起家的地方，溫暖但很擠，只放得下三件小家具。': 'Light oak floors, a linen sofa and plants everywhere. Where small teams start out: cozy but cramped, with room for just three small pieces.',
@@ -174,7 +174,7 @@ export const dictionary = {
   '整層樓頂的園區：兩間工作坊、一座遊樂中庭和空中花園。所有設施都放得下。': 'A whole rooftop campus: two workshops, a games courtyard and a sky garden. Everything fits here.',
   '收入最高，心情與精力每小時 +4，心情衰退 −60%': 'Highest income, mood and energy +4 per hour, mood decay −60%',
 
-  /* ---------- Items ---------- */
+  /* Items */
   '焙茶': 'Roasted tea', '溫熱的焙茶，適合想事情的時候。': 'Warm roasted tea, good for thinking things through.', '這泡茶剛好。': 'This brew is just right.', '先暖手，再暖腦。': 'Warm hands first, then a warm brain.',
   '雙份濃縮': 'Double espresso', '一口喝完的那種，精力大補。': 'Gone in one sip. A big energy boost.', '好，我醒了。非常醒。': 'OK, I’m awake. Very awake.', '再給我一個邊界案例！': 'Give me another edge case!',
   '馬卡龍禮盒': 'Macaron box', '六色馬卡龍，排得整整齊齊。': 'Six colors of macaron, lined up neatly.', '顏色排得很順，我喜歡。': 'The colors flow nicely. I like it.', '這盒我會對齊再吃。': 'I’ll line these up before eating them.',
@@ -193,7 +193,7 @@ export const dictionary = {
   '香氛精油': 'Aroma oils', '在辦公室點上雪松與柑橘的味道。': 'Cedar and citrus scent through the office.', '整間辦公室聞起來像森林。': 'The whole office smells like a forest.', '深呼吸，再開始。': 'Deep breath, then begin.',
   '員工旅遊': 'Team trip', '包下溫泉旅館兩天一夜，全員放風。': 'A hot-spring inn for a night, everyone off duty.', '我們回來了，帶了伴手禮！': 'We’re back, and we brought souvenirs!', '泡完溫泉，bug 也變可愛了。': 'After the hot spring, even bugs look cute.',
 
-  /* ---------- Furniture ---------- */
+  /* Furniture */
   '松柏盆景': 'Pine bonsai', '修剪得剛好的小松樹。': 'A small pine, pruned just right.', '修一下這根枝條。': 'Let me trim this branch.', '它長得比我有耐心。': 'It grows more patiently than I do.',
   '懶骨頭': 'Beanbag', '一坐下去就不想起來。': 'Sit down once and you’ll never get up.', '讓我陷進去五分鐘。': 'Let me sink in for five minutes.', '這是最好的思考姿勢。': 'Best thinking position there is.',
   '濃縮咖啡機': 'Espresso machine', '銅色鍋爐的半自動咖啡機。': 'A semi-automatic machine with a copper boiler.', '萃取二十五秒，剛好。': 'Twenty-five seconds. Perfect.', '奶泡打得很綿。': 'The milk foam is silky.',
@@ -232,13 +232,13 @@ export const dictionary = {
   '卡拉OK舞台': 'Karaoke stage', '小舞台、麥克風與彩色燈光，一人唱、大家喊安可。': 'A little stage, a mic and colored lights. One sings, everyone shouts for an encore.', '下一首換你唱！': 'You’re singing the next one!', '安可！安可！': 'Encore! Encore!',
   '使用{}': 'Using the {0}',
 
-  /* ---------- Perks ---------- */
+  /* Perks */
   '彈性工時': 'Flexible hours', '想早點來或晚點走都可以。': 'Come in early or leave late, your call.', '零食津貼': 'Snack allowance', '每週補滿一次零食櫃。': 'The snack shelf is refilled every week.',
   '健身補助': 'Gym subsidy', '健身房月費公司出一半。': 'The company pays half the gym membership.', '寵物友善': 'Pet friendly', '可以帶狗狗一起上班。': 'Bring your dog to work.',
   '學習基金': 'Learning fund', '每人每年一筆課程與書籍預算。': 'A yearly budget for courses and books.', '心理諮商': 'Counseling', '每月一次免費諮商，壓力有地方放。': 'A free counseling session every month.',
   '遠端工作日': 'Remote days', '每週五可以在家工作。': 'Work from home on Fridays.', '年終分紅': 'Year-end bonus', '業績好，大家一起分。': 'When business is good, everyone shares.',
 
-  /* ---------- Personalities and office life ---------- */
+  /* Personalities and office life */
   '溫和的提問派': 'The gentle questioner', '先聽完，再問一句能讓大家想清楚的問題。遇到僵局會拿起筆，在白板上把兩邊的想法畫出來。': 'Listens first, then asks the one question that clears things up. In a deadlock, picks up a marker and draws both sides on the whiteboard.',
   '畫白板': 'Sketching on the whiteboard', '先畫出問題，答案才有地方站。': 'Draw the problem first so the answer has somewhere to stand.', '這條線先留白，等大家補上。': 'I’ll leave this line blank for everyone to fill in.',
   '靠窗泡茶': 'Brewing tea by the window', '這泡茶剛好夠想一個問題。': 'This pot is just long enough for one question.', '我先讓茶和想法各沉澱一下。': 'Letting the tea and my thoughts both settle.',
@@ -270,14 +270,14 @@ export const dictionary = {
   '我找到兩種卡榫的做法，想看看嗎？': 'I found two ways to make the joint. Want to see?', '先借我第二張。我想試試它好不好拆。': 'Lend me the second one. I want to see how easily it comes apart.', '好，拆壞了再來看第一張。': 'Sure. If it breaks, we’ll look at the first.',
   '我寫的第一行是不是太長了？': 'Is my first line too long?', '念一遍。你在哪裡換氣，就從那裡斷開。': 'Read it aloud. Break it wherever you take a breath.', '那我的第二行大概需要一張椅子。': 'Then my second line probably needs a chair.',
   '工具箱我上鎖了，密碼貼在背面。': 'I locked the toolbox. The code is taped to the back.', '好，我新增「不翻過來能否打開」的測試。': 'OK, I’m adding a “can it be opened without flipping it” test.', '……我先把紙條拿走。': '…I’ll take the note off first.',
-  '「{}」已完成，從接單到結束約 {} 秒。': '“{0}” is done — about {1}s from pickup to finish.', '「{}」已完成，從接單到結束約 {} 分鐘。': '“{0}” is done — about {1} min from pickup to finish.',
+  '「{}」已完成，從接單到結束約 {} 秒。': '“{0}” is done, about {1}s from pickup to finish.', '「{}」已完成，從接單到結束約 {} 分鐘。': '“{0}” is done, about {1} min from pickup to finish.',
   '「{}」已完成。': '“{0}” is done.', '「{}」中斷了，從接單到結束約 {} 秒。': '“{0}” was interrupted after about {1}s.', '「{}」中斷了，從接單到結束約 {} 分鐘。': '“{0}” was interrupted after about {1} min.',
-  '「{}」中斷了。': '“{0}” was interrupted.', '這筆交辦已完成，從接單到結束約 {} 秒。': 'This task is done — about {0}s from pickup to finish.',
-  '這筆交辦已完成，從接單到結束約 {} 分鐘。': 'This task is done — about {0} min from pickup to finish.', '這筆交辦已完成。': 'This task is done.',
+  '「{}」中斷了。': '“{0}” was interrupted.', '這筆交辦已完成，從接單到結束約 {} 秒。': 'This task is done, about {0}s from pickup to finish.',
+  '這筆交辦已完成，從接單到結束約 {} 分鐘。': 'This task is done, about {0} min from pickup to finish.', '這筆交辦已完成。': 'This task is done.',
   '這筆交辦中斷了，從接單到結束約 {} 秒。': 'This task was interrupted after about {0}s.', '這筆交辦中斷了，從接單到結束約 {} 分鐘。': 'This task was interrupted after about {0} min.', '這筆交辦中斷了。': 'This task was interrupted.',
   '上次交給了 {}。這次把分工也一起記下來。': 'Last time it went to {0}. Let’s note who did what this time too.',
 
-  /* ---------- Messages from the local service ---------- */
+  /* Messages from the local service */
   '附件格式或檔名不受支援。': 'Unsupported attachment type or file name.', '附件內容格式錯誤。': 'The attachment content is malformed.', '單一附件最多 10 MB。': 'Each attachment can be up to 10 MB.',
   '無法讀取「{}」，請確認檔案內容與格式相符。': 'Couldn’t read “{0}”. Check that the content matches the file type.', '單一附件最多 10 MB，總大小最多 20 MB。': 'Each attachment can be up to 10 MB, 20 MB in total.',
   '「{}」需要密碼，請先解鎖再上傳。': '“{0}” needs a password. Unlock it before uploading.', '「{}」無法讀取，請檢查檔案或將需要的頁面貼成截圖。': 'Couldn’t read “{0}”. Check the file or paste the pages you need as screenshots.',
@@ -288,7 +288,7 @@ export const dictionary = {
   'ChatGPT 授權未完成。請再試一次，或使用手動登入。': 'ChatGPT authorization didn’t finish. Try again or sign in manually.', 'Claude 授權等待逾時。': 'Timed out waiting for Claude authorization.',
   'Claude 授權未完成。若瀏覽器沒有開啟，請使用手動登入。': 'Claude authorization didn’t finish. If no browser opened, sign in manually.', 'ChatGPT 授權等待逾時。': 'Timed out waiting for ChatGPT authorization.',
   '無法啟動 Goose 的授權流程。請重試或使用手動登入。': 'Couldn’t start Goose’s authorization. Retry or sign in manually.', '結束代碼 {}': 'Exit code {0}',
-  '資金不足，還差 {}。': 'Not enough funds — {0} short.', '找不到這個道具。': 'Item not found.', '找不到這件家具。': 'Furniture not found.', '已經擁有這件家具。': 'You already own this piece.',
+  '資金不足，還差 {}。': 'Not enough funds: {0} short.', '找不到這個道具。': 'Item not found.', '找不到這件家具。': 'Furniture not found.', '已經擁有這件家具。': 'You already own this piece.',
   '需要先解鎖 {}F。': 'Unlock {0}F first.', '這棟大樓沒有放得下它的位置。': 'No floor in the building has room for it.', '找不到這項福利。': 'Perk not found.', '已經實施這項福利。': 'This perk is already active.',
   '請選擇道具、家具或福利。': 'Choose an item, furniture or perk.', '背包裡沒有這個道具。': 'That item isn’t in the inventory.', '請選擇要給予的成員。': 'Choose who to give it to.',
   '尚未擁有這件家具。': 'You don’t own this piece yet.', '這層樓沒有這個位置。': 'This floor doesn’t have that spot.', '這是牆面位置。': 'That’s a wall spot.', '這是地面位置。': 'That’s a floor spot.',
@@ -372,5 +372,6 @@ export const dictionary = {
   '這個本機服務未提供設定。': 'This local service doesn’t offer settings.', '請從本機辦公室頁面變更設定。': 'Change settings from the local office page.',
   '自動': 'Auto', '白天': 'Day', '夜晚': 'Night', '日夜：跟隨本機時間（晚上 7 點到早上 6 點是夜晚）': 'Day / night: follows your clock (night from 7 pm to 6 am)',
   '日夜：固定白天': 'Day / night: always day', '日夜：固定夜晚': 'Day / night: always night',
+  '沒有最愛': 'No favourite', '沒有加成': 'No bonus',
   '分工需要 1 至 6 個工序。': 'A workflow needs 1 to 6 steps.', '請確認工序編號、負責人、工作說明和依賴。': 'Check the step IDs, owners, instructions and dependencies.', '依賴的工序不存在。': 'A dependency doesn’t exist.'
 };

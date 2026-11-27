@@ -860,3 +860,23 @@ button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit;bo
 .daylight-toggle .sky-icon{width:10px;height:10px;border-radius:50%;background:#f2c94c;box-shadow:0 0 0 2px #f2c94c33;flex:none}
 .daylight-toggle[data-mode="night"] .sky-icon{background:#c8d0f0;box-shadow:inset -3px -1px 0 #3a4266}
 .daylight-toggle[data-mode="auto"] .sky-icon{background:linear-gradient(90deg,#f2c94c 50%,#5a6aa8 50%)}
+/* Light theme: settings text that has its own colour in the dark theme (WCAG AA on white). */
+[data-theme="light"] .setting-key{color:var(--soft)}
+[data-theme="light"] .setting-apply.live{color:var(--lime);border-color:#39642955}
+[data-theme="light"] .settings-status.ok{color:var(--lime)}
+[data-theme="light"] :is(.settings-status.bad,.setting-warn){color:var(--error)}
+
+/* Touch screens: every top-bar and map control gets at least a 44 px target. */
+@media (pointer: coarse) {
+  .topbar .nav-action, .theme-toggle, .lang-toggle, .login-trigger, .service summary, .map-controls button { min-height: 44px; }
+  .topbar .nav-action, .theme-toggle, .map-controls button { min-width: 44px; justify-content: center; }
+  .lang-toggle span { min-height: 36px; }
+}
+/* Phones: logo and buttons on the first row, the four page tabs across the second, so nothing is squeezed off screen. */
+@media (max-width: 570px) {
+  .top-inner { flex-wrap: wrap; height: auto; row-gap: 0; padding-top: 6px; }
+  .topbar .views { order: 3; width: 100%; justify-content: space-between; gap: 0; }
+  .topbar .views .nav-action { flex: 1; justify-content: center; }
+  .topbar-end { gap: 8px; }
+}
+@media (pointer: coarse) { .topbar .login-trigger { min-height: 44px; min-width: 44px; } }
