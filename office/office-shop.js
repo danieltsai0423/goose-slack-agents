@@ -7,6 +7,7 @@ import { paintFloorPreview, variants } from './scene.js';
 import { drawAnimeCharacter } from './anime-people.js';
 import { furnitureSprite, models as voxelModels } from './voxel-furniture.js';
 import { DIRECTIONS } from './stack.js';
+import { toast, motionOn } from './toast.js';
 
 const money = value => '$' + Math.round(value || 0).toLocaleString('en-US');
 const slotName = id => ({ f: '地面', g: '大型', w: '牆面' })[id[0]] + ' · ' + id.slice(1);
@@ -17,7 +18,7 @@ const effectText = entry => [
   entry.mood ? `心情 ${signed(entry.mood)}` : '', entry.energy ? `精力 ${signed(entry.energy)}` : ''
 ].filter(Boolean).join(' · ');
 const teamOf = id => id === 'codex' || id?.startsWith('codex-') ? 'codex' : 'claude';
-const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reducedMotion = () => !motionOn();
 
 function sprite(width, height, scale, draw) {
   const canvas = document.createElement('canvas');
@@ -133,7 +134,7 @@ function turntable(id) {
       if (!node.isConnected) { turning.delete(node); continue; }
       // Turn only while the card is hovered or focused, so nothing keeps moving on its own.
       const card = node.closest('.shop-card') || node.parentElement;
-      if (node.offsetParent && card?.matches(':hover, :focus-within') && !matchMedia('(prefers-reduced-motion: reduce)').matches) { node.dataset.turn = String(Number(node.dataset.turn || 0) + 1); paintTurn(node); }
+      if (node.offsetParent && card?.matches(':hover, :focus-within') && !reducedMotion()) { node.dataset.turn = String(Number(node.dataset.turn || 0) + 1); paintTurn(node); }
     }
     if (!turning.size) { clearInterval(turnTimer); turnTimer = null; }
   }, 140);
@@ -187,13 +188,11 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     node.setAttribute('role', 'tab');
   }
 
+  // Confirmations become toasts; errors stay in the note under the tabs, next to what failed.
   function setNote(text, tone = '') {
-    note.textContent = text || ''; note.dataset.tone = tone; note.hidden = !text;
     clearTimeout(noteTimer);
-    if (text && tone === 'ok') {
-      note.classList.remove('show'); void note.offsetWidth; note.classList.add('show');
-      noteTimer = setTimeout(() => { note.hidden = true; }, 6000);
-    }
+    if (text && tone === 'ok') { toast(text, { tone: 'ok' }); note.hidden = true; return; }
+    note.textContent = text || ''; note.dataset.tone = tone; note.hidden = !text;
   }
   const nameOf = id => getStaff().find(person => person.id === id)?.name || id;
 
@@ -220,6 +219,22 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     setTimeout(() => float.remove(), 1300);
   }
 
+  // The funds counter rolls from the old balance to the new one instead of jumping.
+  let rolling = 0;
+  function rollFunds(from, to) {
+    cancelAnimationFrame(rolling);
+    const wallet = document.getElementById('wallet');
+    if (from == null || from === to || reducedMotion()) { fundsLabel.textContent = money(to); return; }
+    const start = performance.now(), span = 650;
+    wallet?.classList.add('counting');
+    const step = now => {
+      const k = Math.min(1, (now - start) / span), eased = 1 - (1 - k) ** 3;
+      fundsLabel.textContent = money(from + (to - from) * eased);
+      if (k < 1) rolling = requestAnimationFrame(step);
+      else { fundsLabel.textContent = money(to); wallet?.classList.remove('counting'); }
+    };
+    rolling = requestAnimationFrame(step);
+  }
   const holdings = value => value && JSON.stringify([value.funds, value.inventory, value.owned, value.perks, value.placed, value.floor, value.floorsOwned]);
   // Background polls refresh the summary, but only rebuild the cards when something you can act on changed
   // and nothing in the shop has focus, so a poll never swallows a click or closes an open menu.
@@ -229,8 +244,9 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     const first = lastLedger == null;
     const fresh = first ? [] : next.ledger.filter(entry => entry.at > lastLedger);
     lastLedger = next.ledger[0]?.at ?? lastLedger ?? 0;
+    const before = economy?.funds;
     economy = next;
-    fundsLabel.textContent = money(next.funds);
+    rollFunds(before, next.funds);
     rateLabel.textContent = '×' + next.income.toFixed(2);
     rateLabel.title = `每 1% 額度 ${money(FUNDS_PER_PERCENT * next.income)}（樓層、家具與福利 ×${next.rates.income} · 士氣 ×${next.morale}）`;
     document.getElementById('floor-label').textContent = next.floor + 'F';
@@ -263,9 +279,28 @@ export function mountOfficeShop({ el, getSelected, getStaff, onChange, onReact, 
     } catch { setNote('無法連線到辦公室服務。', 'error'); return null; }
     finally { busy = false; if (visible()) render(); }
   }
+  // A coin flies from the card to the funds counter, which then rolls down to the new balance.
+  function coinFly(from) {
+    const target = document.getElementById('wallet');
+    if (!from || !target || reducedMotion()) return;
+    const a = from.getBoundingClientRect(), b = target.getBoundingClientRect();
+    if (!a.width || !b.width) return;
+    const coin = document.createElement('i');
+    coin.className = 'coin-fly';
+    coin.setAttribute('aria-hidden', 'true');
+    document.body.append(coin);
+    const x0 = a.left + a.width / 2 - 7, y0 = a.top + a.height / 2 - 7, x1 = b.left + 14, y1 = b.top + b.height / 2 - 7;
+    coin.animate([
+      { transform: `translate(${x0}px, ${y0}px) scale(1)` },
+      { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 60}px) scale(1.25)`, offset: 0.5 },
+      { transform: `translate(${x1}px, ${y1}px) scale(.7)`, opacity: 0.6 }
+    ], { duration: 650, easing: 'cubic-bezier(.3,.7,.4,1)' }).finished.finally(() => coin.remove());
+  }
   async function buy(kind, entry, message) {
+    const button = document.activeElement?.closest?.('button');
     const data = await act('buy', { kind, id: entry.id });
     if (!data) return;
+    coinFly(button || body.querySelector(`[data-key="${CSS.escape(kind + ':' + entry.id)}"]`));
     setNote(message, 'ok');
     celebrate(kind + ':' + entry.id, '−' + money(entry.price));
   }

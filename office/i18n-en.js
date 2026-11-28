@@ -373,5 +373,6 @@ export const dictionary = {
   '自動': 'Auto', '白天': 'Day', '夜晚': 'Night', '日夜：跟隨本機時間（晚上 7 點到早上 6 點是夜晚）': 'Day / night: follows your clock (night from 7 pm to 6 am)',
   '日夜：固定白天': 'Day / night: always day', '日夜：固定夜晚': 'Day / night: always night',
   '沒有最愛': 'No favourite', '沒有加成': 'No bonus',
+  '已送出追問。': 'Follow-up sent.', '已交辦給{}。': 'Task sent to {0}.', '關閉通知': 'Close notification',
   '分工需要 1 至 6 個工序。': 'A workflow needs 1 to 6 steps.', '請確認工序編號、負責人、工作說明和依賴。': 'Check the step IDs, owners, instructions and dependencies.', '依賴的工序不存在。': 'A dependency doesn’t exist.'
 };

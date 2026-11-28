@@ -15,7 +15,8 @@ button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit;bo
 @media(max-width:840px){.layout{grid-template-columns:1fr}.dispatch{min-height:450px;max-height:620px}.chat-body{flex-basis:190px}.head-stats{gap:4px}.worker .worker-role{display:inline}.top-inner{gap:25px}.topbar .views{gap:16px}.history{min-height:240px}.workspace{padding-top:18px}.team-section{margin-top:13px}.floor-head,.chat-head{min-height:48px}.worker-list{padding:5px 8px}.service-pop{top:30px}}
 @media(max-width:570px){.top-inner{padding:0 12px;gap:12px;height:55px}.brand{gap:6px;font-size:16px}.brand-mark{width:28px;height:28px;border-radius:6px}.brand-mark canvas{width:24px;height:24px}.topbar .views{gap:8px}.nav-action{font-size:.78rem;gap:4px}.nav-action i{display:none}.service summary{gap:4px}.service summary i{display:none}#service-label{font-size:.71rem}.workspace{padding:17px 10px 24px}.head-stats{display:none}.worker .worker-role{display:none}.team-card .avatar{width:26px;height:26px}.manager{padding:7px;gap:6px;flex-wrap:wrap}.manager-name strong{font-size:.88rem}.manager-name em{font-size:.65rem}.manager .status{font-size:.65rem}.worker-list{padding:4px}.worker{padding:3px;font-size:.75rem}.floor-foot{padding:6px 10px;font-size:.72rem}.floor-head,.chat-head,.history-head{padding:8px 11px}.floor-foot .map-key{font-size:10px}.recipients{padding:11px}.compose-wrap{padding:10px}.panel{border-radius:9px}.list-heading{padding-bottom:7px}.panel h2,.list-heading h2{font-size:.94rem}}
 @media(max-width:380px){.brand span:last-child{font-size:0}.brand span:last-child::after{content:"Goose";font-size:15px}.top-inner{gap:10px}.manager-name em{display:none}.floor-foot .map-key{gap:3px}.service summary{font-size:.65rem}}
-@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){:root:not([data-motion="on"]) *{scroll-behavior:auto!important;transition:none!important}}
+:root[data-motion="off"] *{transition:none!important}
 #target-status{margin:7px 1px 0;color:#efbd9d;font-size:.875rem;line-height:1.5}
 .topbar-end{display:flex;align-items:center;gap:20px;margin-left:auto;min-width:0}
 .topbar-end .head-stats{white-space:nowrap}
@@ -880,3 +881,59 @@ button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit;bo
   .topbar-end { gap: 8px; }
 }
 @media (pointer: coarse) { .topbar .login-trigger { min-height: 44px; min-width: 44px; } }
+
+/* Toasts: short confirmations in the bottom-right corner (bottom-centre on phones). */
+.toast-region{position:fixed;right:18px;bottom:18px;z-index:60;display:grid;gap:8px;justify-items:end;pointer-events:none}
+.toast{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:min(360px,calc(100vw - 32px));padding:10px 8px 10px 12px;border-radius:10px;
+  background:#1f2b32;border:1px solid var(--line);color:var(--ink);font-size:.88rem;box-shadow:0 10px 28px #00000055}
+.toast-mark{width:9px;height:9px;border-radius:3px;flex:none;background:var(--lime)}
+.toast.info .toast-mark{background:var(--blue)}.toast.spend .toast-mark{background:#f2c94c}
+.toast-text{flex:1;line-height:1.4}
+.toast-close{flex:none;width:28px;height:28px;border:0;border-radius:7px;background:transparent;color:var(--soft);font-size:1.1rem;cursor:pointer}
+.toast-close:hover{background:#ffffff14;color:var(--ink)}.toast-close:focus-visible{outline:2px solid var(--lime);outline-offset:1px}
+[data-theme="light"] .toast{background:#ffffff;box-shadow:0 10px 24px #20302633}
+@media (max-width:570px){.toast-region{left:12px;right:12px;bottom:12px;justify-items:stretch}.toast{max-width:none}}
+@media (pointer:coarse){.toast-close{width:44px;height:44px}}
+
+/* A coin that flies from a buy button to the funds counter. */
+.coin-fly{position:fixed;z-index:70;width:14px;height:14px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 35% 35%,#fff3b0 0 22%,#f2c94c 23% 70%,#b8862a 71%);box-shadow:0 0 0 1px #6b4400}
+
+/* Purposeful motion only. It follows the office animation switch, which starts from the system's
+   reduced-motion setting and lets the person override it (app.js sets data-motion on <html>). */
+:root[data-motion="on"]{
+  /* Dialogs rise slightly and fade in; the backdrop dims. Closing reverses it. */
+  .login-dialog{opacity:0;transform:translateY(10px) scale(.98);
+    transition:opacity .18s ease,transform .2s cubic-bezier(.2,.8,.3,1),overlay .2s allow-discrete,display .2s allow-discrete}
+  .login-dialog[open]{opacity:1;transform:none}
+  @starting-style{.login-dialog[open]{opacity:0;transform:translateY(10px) scale(.98)}}
+  .login-dialog::backdrop{background:#0b141a00;transition:background .2s ease,overlay .2s allow-discrete,display .2s allow-discrete}
+  .login-dialog[open]::backdrop{background:#0b141a99}
+  @starting-style{.login-dialog[open]::backdrop{background:#0b141a00}}
+  /* Menus unfold from their trigger. */
+  .access-menu,.folder-menu{transition:opacity .14s ease,transform .16s cubic-bezier(.2,.8,.3,1),display .16s allow-discrete}
+  .access-menu:not([hidden]),.folder-menu:not([hidden]){opacity:1;transform:none}
+  @starting-style{.access-menu:not([hidden]),.folder-menu:not([hidden]){opacity:0;transform:translateY(6px) scale(.98)}}
+  .access-menu[hidden],.folder-menu[hidden]{opacity:0;transform:translateY(6px) scale(.98)}
+  .usage-popover{transition:opacity .14s ease,transform .16s cubic-bezier(.2,.8,.3,1),overlay .16s allow-discrete,display .16s allow-discrete;opacity:0;transform:translateY(6px)}
+  .usage-popover:popover-open{opacity:1;transform:none}
+  @starting-style{.usage-popover:popover-open{opacity:0;transform:translateY(6px)}}
+  .service[open] .service-pop{animation:menu-in .16s cubic-bezier(.2,.8,.3,1)}
+  /* The page you switch to settles in; new chat messages slide up. */
+  .view-enter{animation:view-in .2s ease}
+  .msg-new{animation:msg-in .24s cubic-bezier(.2,.8,.3,1)}
+  /* Toasts slide in from the side and fade out. */
+  .toast{animation:toast-in .22s cubic-bezier(.2,.8,.3,1)}
+  .toast.leaving{animation:toast-out .18s ease forwards}
+  /* Buttons give a little under the pointer. */
+  button:not(:disabled),.nav-action{transition:transform .08s ease,background-color .15s ease,border-color .15s ease,color .15s ease}
+  button:not(:disabled):active,.nav-action:active{transform:translateY(1px)}
+  .office-canvas.floor-swap,#office-canvas.floor-swap{animation:floor-swap .34s ease}
+  .wallet.counting b{color:#f2c94c}
+}
+@keyframes menu-in{from{opacity:0;transform:translateY(-4px)}}
+@keyframes view-in{from{opacity:0;transform:translateY(6px)}}
+@keyframes msg-in{from{opacity:0;transform:translateY(8px)}}
+@keyframes toast-in{from{opacity:0;transform:translateX(16px)}}
+@keyframes toast-out{to{opacity:0;transform:translateX(16px)}}
+@keyframes floor-swap{from{opacity:.15;filter:saturate(.6)}}

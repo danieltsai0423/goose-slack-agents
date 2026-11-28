@@ -311,6 +311,8 @@ export function createOfficeScene(canvas, { onSelect = () => {}, onLife = () => 
     floor = buildFloor(floorId, placed);
     world = makeCanvas(floor.proj.width, floor.proj.height);
     routes.clear();
+    // Moving to another floor fades the new room in (CSS keeps it still when the animation switch is off).
+    if (changedFloor) { canvas.classList.remove('floor-swap'); void canvas.offsetWidth; canvas.classList.add('floor-swap'); }
     if (changedFloor) { camera.zoom = 0; camera.x = floor.proj.width / 2; camera.y = floor.proj.height / 2; }
     resize();
   }

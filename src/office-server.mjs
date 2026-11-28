@@ -23,7 +23,7 @@ const staticFiles = new Map([
   ['/app.js', ['app.js', 'text/javascript']], ['/scene.js', ['scene.js', 'text/javascript']],
   ['/life.js', ['life.js', 'text/javascript']],
   ['/behavior.js', ['behavior.js', 'text/javascript']],
-  ['/i18n.js', ['i18n.js', 'text/javascript']], ['/settings-page.js', ['settings-page.js', 'text/javascript']], ['/i18n-en.js', ['i18n-en.js', 'text/javascript']],
+  ['/i18n.js', ['i18n.js', 'text/javascript']], ['/settings-page.js', ['settings-page.js', 'text/javascript']], ['/i18n-en.js', ['i18n-en.js', 'text/javascript']], ['/toast.js', ['toast.js', 'text/javascript']],
   ['/attachment-types.js', ['attachment-types.js', 'text/javascript']],
   ['/workspace-tools.js', ['workspace-tools.js', 'text/javascript']],
   ['/folder-picker.js', ['folder-picker.js', 'text/javascript']],

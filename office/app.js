@@ -4,6 +4,7 @@ import { createOfficeScene } from './scene.js';
 import { personalities, summarizeBrief } from './life.js';
 import { mountWorkspaceTools } from './workspace-tools.js';
 import { mountSettingsPage } from './settings-page.js';
+import { toast } from './toast.js';
 import { mountSubscriptionUsage } from './subscription-usage.js';
 import { mountFolderPicker } from './folder-picker.js';
 import { mountAccessMode } from './access-mode.js';
@@ -94,6 +95,8 @@ function putStore(key, value) { try {if(value == null) localStorage.removeItem('
 // The 辦公室日常 switch is the one control for office animation. With no choice saved yet it follows the system's
 // reduced-motion setting; once someone flips it, their choice wins over the system.
 let lifeEnabled = typeof getStore('office-life') === 'boolean' ? getStore('office-life') : !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const syncMotion = () => { document.documentElement.dataset.motion = lifeEnabled ? 'on' : 'off'; };
+syncMotion();
 let lifeFrame = null;
 // Day / night in the office: follows the local clock (auto), or stays day or night.
 let daylight = ['auto', 'day', 'night'].includes(getStore('daylight')) ? getStore('daylight') : 'auto';
@@ -710,6 +713,7 @@ function renderMessage(message, staff) {
   if(message.preview)row.setAttribute('aria-live','off');
   return row;
 }
+let seenThread='',seenMessages=new Set();
 function renderChat(force=false) {
   const item=slackId?state.slackThreads.find(s=>s.id===slackId):null;
   const relevant=slackId?(item?.messages||[]):threadId?state.messages.filter(m=>m.threadId===threadId):[];
@@ -730,7 +734,15 @@ function renderChat(force=false) {
   const messages=el('div','messages');
   if(slackId)messages.append(el('p','system-msg','從本機 Slack 紀錄同步 · 唯讀'));
   const staff=workers();
-  const timeline=relevant.map(message=>({at:message.createdAt, node:()=>renderMessage(message,staff)}));
+  // Only messages that arrive while this thread is open slide in; switching threads shows everything at rest.
+  const threadKey=slackId||threadId, keyOf=message=>message.id||message.author+'@'+message.createdAt;
+  const sameThread=seenThread===threadKey;
+  if(!sameThread){seenThread=threadKey;seenMessages=new Set();}
+  const timeline=relevant.map(message=>({at:message.createdAt, node:()=>{
+    const node=renderMessage(message,staff), key=keyOf(message);
+    if(sameThread&&!seenMessages.has(key))node.classList.add('msg-new');
+    seenMessages.add(key);return node;
+  }}));
   for(const task of taskGroup) {
     const rows=histories.get(task.id)||[];
     if(rows.length||active.has(task.status)||task.status==='queued') {
@@ -756,6 +768,9 @@ function renderChat(force=false) {
   if(force||nearEnd)chatBox.scrollTop=chatBox.scrollHeight;
 }
 function showView(next) {
+  // The page you switch to settles in (CSS skips this when the animation switch is off).
+  if(view!==next){const shown=$({floor:'floor-view',history:'history-view',shop:'shop-view',settings:'settings-view'}[next]);
+    if(shown){shown.classList.remove('view-enter');void shown.offsetWidth;shown.classList.add('view-enter');}}
   view=next;
   $('floor-view').hidden=next!=='floor';$('history-view').hidden=next!=='history';
   $('shop-view').hidden=next!=='shop';$('settings-view').hidden=next!=='settings';
@@ -996,6 +1011,7 @@ $('composer').onsubmit=async e=>{
     workspaceTools.clearDraft(key);
     putStore(key,null);putStore(pendingKey,null);threadId=answer.threadId;
     field.value='';await refresh();renderChat(true);
+    toast(existing?'已送出追問。':'已交辦給'+managers.map(titleFor).join('、')+'。',{tone:'info'});
   }catch(error){note('送出未確認，草稿已保留。'+error.message);}
   finally{sending=false;renderControls();}
 };
@@ -1020,7 +1036,7 @@ if('ResizeObserver' in window){
 }
 $('office-life-toggle').onclick=()=>{
   lifeEnabled=!lifeEnabled;
-  putStore('office-life',lifeEnabled);
+  putStore('office-life',lifeEnabled);syncMotion();
   renderLifeToggle();
   renderTeams();
 };

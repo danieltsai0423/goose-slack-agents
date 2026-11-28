@@ -1,5 +1,7 @@
 // Settings page: where Claude, Codex and Goose are found and how long they may run, saved locally through
 // /api/settings. Values left empty fall back to .env, then to the built-in default.
+import { toast } from './toast.js';
+
 const groups = [
   { id: 'claude', title: 'Claude', blurb: 'Claude Code 執行檔與 Slack 橋接器使用的預設模型。' },
   { id: 'codex', title: 'Codex', blurb: '原生 Codex CLI、它的設定資料夾，以及 Slack 橋接器使用的預設模型。' },
@@ -56,6 +58,7 @@ export function mountSettingsPage(root) {
       fields = data.fields; drafts = Object.fromEntries(fields.map(field => [field.key, field.saved]));
       const slackOnly = data.changed.every(key => fields.find(field => field.key === key)?.scope === 'slack');
       status = { text: data.restart ? (slackOnly ? '已儲存。重啟 Slack 橋接器後生效。' : '已儲存。部分設定在重啟 Office 後生效。') : '已儲存，立即生效。', tone: 'ok' };
+      toast(status.text, { tone: 'ok' });
     } catch (error) {
       status = { text: error.message || '無法儲存設定。', tone: 'bad' };
     }
